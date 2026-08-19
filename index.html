@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" dir="ltr" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      (function() {
+        // Prevent and handle getter-only fetch property errors gracefully
+        try {
+          var desc = Object.getOwnPropertyDescriptor(window, 'fetch') || Object.getOwnPropertyDescriptor(Object.getPrototypeOf(window), 'fetch');
+          if (desc && !desc.writable && !desc.set) {
+            var currentFetch = window.fetch.bind(window);
+            Object.defineProperty(window, 'fetch', {
+              get: function() { return currentFetch; },
+              set: function(fn) { currentFetch = fn; },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (err) {
+          // Fallback if property is sealed/frozen
+        }
+
+        window.addEventListener('error', function(e) {
+          if (e && e.message && (e.message.indexOf('fetch') !== -1 || e.message.indexOf('Cannot set property') !== -1)) {
+            e.preventDefault && e.preventDefault();
+            e.stopImmediatePropagation && e.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BotCraft AI | Luxury AI Chatbots & Website Widgets</title>
+    <meta name="description" content="Build, train, and embed ultra-luxurious, tailored AI chatbots on any website in seconds." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-neutral-950 text-neutral-100 font-['Plus_Jakarta_Sans',sans-serif] antialiased selection:bg-indigo-500 selection:text-white min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
