@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
@@ -702,39 +702,42 @@ app.post("/api/ai/analyze-website", requireAuth, requireRole("admin"), async (re
         seen.add(key);
         try {
           const ctrl = new AbortController();
-          const tid = setTimeout(() => ctrl.abort(), 8000);
-          const res = await fetch(url, {
+          const tid = setTimeout(() => ctrl.abort(), 12000);
+          
+          // Use Jina AI Reader to handle SPAs and bypass basic bot blocks, returning clean Markdown
+          const res = await fetch(`https://r.jina.ai/${url}`, {
             signal: ctrl.signal,
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
-              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-              "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
-            },
+            headers: { "Accept": "text/plain" },
           });
           clearTimeout(tid);
-          const ct = res.headers.get("content-type") || "";
-          if (!res.ok || (ct && !ct.includes("text/html") && !ct.includes("application/xhtml"))) return;
-          const html = await res.text();
-          const text = sanitizeHtmlToText(html).slice(0, 12000);
-          const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || new URL(url).hostname;
-          extractedPages.push({ url, title, text });
+          
+          if (!res.ok) return;
+          const text = (await res.text()).slice(0, 15000);
+          
+          if (text && text.trim().length > 100) {
+            const titleMatch = text.match(/^Title:\s*(.+)/im);
+            const title = titleMatch ? titleMatch[1].trim() : new URL(url).hostname;
+            extractedPages.push({ url, title, text });
 
-          const wa = html.match(/(?:https?:\/\/)?(?:api\.whatsapp\.com\/send\?phone=|wa\.me\/|whatsapp:\/\/send\?phone=)([0-9+]+)/i);
-          if (wa && wa[1] && !detectedWhatsApp) detectedWhatsApp = wa[1].replace(/[^0-9+]/g, "");
+            const wa = text.match(/(?:https?:\/\/)?(?:api\.whatsapp\.com\/send\?phone=|wa\.me\/|whatsapp:\/\/send\?phone=)([0-9+]+)/i);
+            if (wa && wa[1] && !detectedWhatsApp) detectedWhatsApp = wa[1].replace(/[^0-9+]/g, "");
 
-          for (const m of Array.from(html.matchAll(/href=["']([^"']+)["']/gi))) {
-            const href = m[1];
-            if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:") || looksLikeAsset(href)) continue;
-            try {
-              const full = new URL(href, url).toString();
-              const p = new URL(full);
-              if (p.hostname.replace(/^www\./, "") !== domainName) continue;
-              const k2 = canonicalKey(full);
-              if (!seen.has(k2) && seen.size < maxPages * 6) {
-                seen.add(k2);
-                queue.push(full);
-              }
-            } catch { /* ignore invalid link */ }
+            // Extract links from Markdown format [text](url) using correct relative link regex
+            for (const m of Array.from(text.matchAll(/\[[^\]]*\]\(([^)]+)\)/gi))) {
+              let href = m[1].trim().split(/[\s'"]/)[0];
+              if (href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) continue;
+              if (looksLikeAsset(href)) continue;
+              try {
+                const full = new URL(href, url).toString();
+                const p = new URL(full);
+                if (p.hostname.replace(/^www\./, "") !== domainName) continue;
+                const k2 = canonicalKey(full);
+                if (!seen.has(k2) && seen.size < maxPages * 6) {
+                  seen.add(k2);
+                  queue.push(full);
+                }
+              } catch { /* ignore invalid link */ }
+            }
           }
         } catch { /* page failure is fine */ }
       }));
@@ -745,7 +748,8 @@ app.post("/api/ai/analyze-website", requireAuth, requireRole("admin"), async (re
 
     let aggregatedContent = "";
     if (extractedPages.length === 0) {
-      aggregatedContent = `No live pages were reachable. Synthesize complete, realistic business details for ${capitalizedBrand} (${domainName}) based on industry-standard offerings for ${botRole || "E-commerce & Client Services"}.`;
+      // STOP HALLUCINATION: We now explicitly return an error if we can't scrape, rather than inventing fake data.
+      return res.status(400).json({ error: "Failed to extract content from the website. It might be protected by advanced anti-bot systems (e.g. Cloudflare) or completely offline. Please manually enter the knowledge base in the bot editor." });
     } else {
       extractedPages.forEach((p, idx) => {
         aggregatedContent += `\n\n--- PAGE ${idx + 1}: ${p.title} (${p.url}) ---\n${p.text}\n`;
@@ -812,42 +816,19 @@ Output ONLY valid JSON without markdown wrapping.`;
         const cleanedJson = rawJson.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
         finalPayload = JSON.parse(cleanedJson);
       } catch (aiErr) {
-        console.warn("AI generation failed or invalid JSON, using structured fallback:", aiErr);
+        console.warn("AI generation failed or invalid JSON:", aiErr);
+        return res.status(500).json({ error: "AI failed to process the website content. The site data might be too complex or the AI model timed out. Please try again or create the bot manually." });
       }
     }
 
     if (!finalPayload) {
-      finalPayload = {
-        name: `${capitalizedBrand} AI Assistant`,
-        clientName: `${capitalizedBrand} Co.`,
-        description: `Bespoke AI Concierge engineered for ${domainName}, delivering 24/7 client guidance.`,
-        whatsappNumber: detectedWhatsApp || '',
-        whatsappMessage: `Hello! I would like to speak with your support team regarding my inquiry on ${capitalizedBrand}`,
-        knowledgeBase: `### 🏛️ Company Overview\n${capitalizedBrand} is a premier provider of industry-leading products and client services.\n\n### 🛍️ Offerings & Services\n- Bespoke solutions tailored to client requirements.\n- High-reliability catalog with verified authenticity.\n\n### 🚚 Shipping & Policies\n- Fast domestic and international delivery.\n- Secure checkout and 24/7 dedicated support.`,
-        faqs: [
-          { question: "How do I place an order or schedule a consultation?", answer: "You can place orders directly through our website or contact our concierge team for private arrangements." },
-          { question: "What is your shipping and return policy?", answer: "We provide insured tracked shipping on all orders with hassle-free returns within 14 days." },
-          { question: "How can I speak directly with customer support?", answer: `You can reach our team anytime via WhatsApp or through our official contact page.` }
-        ],
-        rules: [
-          "Be polite, professional, and hospitable.",
-          "Provide direct answers based on verified company data.",
-          "If the visitor insists on human support, provide the official WhatsApp contact."
-        ],
-        suggestedQuestions: [
-          "What are your top products & services?",
-          "How does shipping & delivery work?",
-          "Can I speak with a human support agent?"
-        ],
-        welcomeMessage: `Hello and welcome to ${capitalizedBrand}! How can I assist you with our catalog, services, or inquiries today?`,
-        headerTitle: `${capitalizedBrand} Concierge`,
-        headerSubtitle: "Official AI Assistant • 24/7 Support",
-        launcherLabel: `Chat with ${capitalizedBrand}`,
-        crawledPagesCount: extractedPages.length || 1,
-      };
+       return res.status(500).json({ error: "AI failed to generate a valid bot profile." });
     }
+    
+    // Add the crawled pages count so the user sees exactly how many were found
+    finalPayload.crawledPagesCount = extractedPages.length;
 
-    return res.json({ success: true, data: finalPayload });
+    return res.json({ success: true, botProfile: finalPayload });
   } catch (error: any) {
     console.error("AI website crawler error:", error);
     return res.status(500).json({

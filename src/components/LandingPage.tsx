@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { 
   Bot, 
   Sparkles, 
@@ -67,9 +68,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
             {/* Left Column: Copy & Actions (7 Cols) */}
-            <div className="lg:col-span-7 space-y-7 text-center lg:text-left">
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="lg:col-span-7 space-y-7 text-center lg:text-left"
+            >
               {/* Feature Pill */}
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neutral-900/90 border border-neutral-800 text-neutral-200 text-xs font-semibold shadow-inner backdrop-blur-md">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel text-neutral-200 text-xs font-semibold backdrop-blur-md">
                 <span className="flex h-2 w-2 relative">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
@@ -128,16 +134,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span>Shopify, WordPress, Webflow, Custom</span>
                 </span>
               </div>
-            </div>
+            </motion.div>
 
             {/* Right Column: Live Interactive Widget Experience (5 Cols) */}
-            <div className="lg:col-span-5 relative">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+              className="lg:col-span-5 relative"
+            >
               {/* Outer border glow */}
               <div className="absolute -inset-1 bg-gradient-to-tr from-indigo-500/30 via-violet-500/20 to-emerald-500/30 rounded-3xl blur-xl opacity-60" />
 
-              <div className="relative bg-neutral-950 border border-neutral-800 rounded-3xl p-3 shadow-2xl space-y-3">
+              <div className="relative glass-panel rounded-3xl p-3 shadow-2xl space-y-3">
                 {/* Interactive Preset Switcher */}
-                <div className="p-2.5 bg-neutral-900/90 border border-neutral-800/90 rounded-2xl flex items-center justify-between gap-2">
+                <div className="p-2.5 bg-black/40 border border-white/10 rounded-2xl flex items-center justify-between gap-2">
                   <span className="text-[11px] font-bold text-neutral-400 flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-indigo-400" />
                     <span>Live Widget Preset:</span>
@@ -165,7 +176,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <ChatWidget bot={currentPreviewBot} isEmbedded={true} />
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -187,7 +198,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Step 1 */}
-            <div className="bg-neutral-950 border border-neutral-800/90 rounded-3xl p-8 shadow-xl relative group hover:border-indigo-500/50 transition-all">
+            <div className="glass-panel rounded-3xl p-8 shadow-xl relative group hover:border-indigo-500/50 transition-all">
               <div className="w-14 h-14 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl font-black mb-6 group-hover:scale-110 transition-transform">
                 01
               </div>
@@ -200,7 +211,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             {/* Step 2 */}
-            <div className="bg-neutral-950 border border-neutral-800/90 rounded-3xl p-8 shadow-xl relative group hover:border-violet-500/50 transition-all">
+            <div className="glass-panel rounded-3xl p-8 shadow-xl relative group hover:border-violet-500/50 transition-all">
               <div className="w-14 h-14 rounded-2xl bg-violet-600/10 border border-violet-500/20 text-violet-400 flex items-center justify-center text-xl font-black mb-6 group-hover:scale-110 transition-transform">
                 02
               </div>
@@ -213,7 +224,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
             {/* Step 3 */}
-            <div className="bg-neutral-950 border border-neutral-800/90 rounded-3xl p-8 shadow-xl relative group hover:border-emerald-500/50 transition-all">
+            <div className="glass-panel rounded-3xl p-8 shadow-xl relative group hover:border-emerald-500/50 transition-all">
               <div className="w-14 h-14 rounded-2xl bg-emerald-600/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl font-black mb-6 group-hover:scale-110 transition-transform">
                 03
               </div>

@@ -183,7 +183,8 @@ export async function isUnsafeUrl(url: string): Promise<{ ok: boolean; reason?: 
 // ---------- Basic security headers ----------
 export function securityHeaders(_req: any, res: any, next: any): void {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  // X-Frame-Options is intentionally omitted so the chat widget iframe can be embedded on any client website.
+  // We rely on CSP frame-ancestors * (defined below) to manage framing securely.
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Cross-Origin-Opener-Policy", "same-origin");

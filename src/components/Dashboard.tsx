@@ -171,11 +171,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      setQuickStatus('Could not auto-scrape. Creating standard bot template...');
-      setTimeout(() => {
-        setQuickStatus(null);
-        handleCreateNewBot(clean);
-      }, 1500);
+      setQuickStatus(`Scraping Error: ${err.message || 'Could not reach the website'}`);
+      setTimeout(() => setQuickStatus(null), 5000);
     } finally {
       setIsQuickAnalyzing(false);
     }

@@ -132,7 +132,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#07080e] text-zinc-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-indigo-500 selection:text-white antialiased">
+    <div className="min-h-screen bg-[#050508] text-zinc-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] selection:bg-indigo-500 selection:text-white antialiased">
       {/* Top Navigation */}
       <Navbar
         user={user}

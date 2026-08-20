@@ -1,9 +1,23 @@
 @import "tailwindcss";
 
+@theme {
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-glass-bg: rgba(15, 15, 20, 0.6);
+}
+
 @layer base {
-  * {
-    border-color: rgba(255, 255, 255, 0.1);
+  body {
+    background-color: #050508;
+    color: #f4f4f5;
   }
+}
+
+.glass-panel {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-glass-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* Custom smooth scrollbars */
