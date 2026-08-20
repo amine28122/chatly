@@ -33,7 +33,7 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({
 
   const scriptTagCode = `<!-- BotCraft AI Concierge Widget -->
 <script
-  src="https://cdn.botcraft.ai/v1/widget.js"
+  src="${window.location.origin}/widget.js"
   data-bot-id="${bot.id}"
   data-position="${bot.widgetConfig.position}"
   data-theme="${bot.widgetConfig.theme}"
@@ -41,14 +41,14 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({
 ></script>`;
 
   const iframeCode = `<iframe
-  src="https://botcraft.ai/chat/${bot.id}"
+  src="${window.location.origin}/chat/${bot.id}"
   width="100%"
   height="650"
   frameborder="0"
   style="border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3);"
 ></iframe>`;
 
-  const directLink = `https://botcraft.ai/chat/${bot.id}`;
+  const directLink = `${window.location.origin}/chat/${bot.id}`;
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -90,7 +90,7 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({
             <div className="flex items-center justify-between">
               <label className="font-bold text-white flex items-center gap-2 text-sm">
                 <Sparkles className="w-4 h-4 text-indigo-400" />
-                <span>1. Choose Embed Method (طريقة التضمين)</span>
+                <span>1. Choose Embed Method</span>
               </label>
             </div>
 
@@ -106,7 +106,7 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({
                 }`}
               >
                 <Layers className="w-4 h-4" />
-                <span>Floating Widget (سكربت زر عائم)</span>
+                <span>Floating Widget (script loader)</span>
               </button>
 
               <button
@@ -119,7 +119,7 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({
                 }`}
               >
                 <Code2 className="w-4 h-4" />
-                <span>{copiedKey === 'iframe' ? '✓ Copied iFrame!' : 'Direct iFrame (كود آي فريم)'}</span>
+                <span>{copiedKey === 'iframe' ? '✓ Copied iFrame!' : 'Direct iFrame embed'}</span>
               </button>
             </div>
 
@@ -128,14 +128,14 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
                   <FileCode className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>كود الـ iFrame المباشر (انسخه وألصقه في أي صفحة):</span>
+                  <span>Direct iFrame code — paste into any page:</span>
                 </span>
                 <button
                   onClick={() => copyToClipboard(iframeCode, 'iframe_box')}
                   className="flex items-center gap-1.5 px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg font-bold text-xs transition-all"
                 >
                   {copiedKey === 'iframe_box' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedKey === 'iframe_box' ? 'تم النسخ!' : 'نسخ iFrame'}</span>
+                  <span>{copiedKey === 'iframe_box' ? 'Copied!' : 'Copy iFrame'}</span>
                 </button>
               </div>
               <div className="bg-black border border-neutral-800 rounded-xl p-3 font-mono text-[11px] text-emerald-300 overflow-x-auto leading-relaxed select-all">
@@ -148,14 +148,14 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>كود السكربت العائم (Floating Widget Script):</span>
+                  <span>Floating Widget script code:</span>
                 </span>
                 <button
                   onClick={() => copyToClipboard(scriptTagCode, 'script')}
                   className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-xs transition-all shadow-sm"
                 >
                   {copiedKey === 'script' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedKey === 'script' ? 'تم النسخ!' : 'نسخ السكربت'}</span>
+                  <span>{copiedKey === 'script' ? 'Copied!' : 'Copy script'}</span>
                 </button>
               </div>
 
@@ -163,7 +163,7 @@ export const EmbedModal: React.FC<EmbedModalProps> = ({
                 {scriptTagCode}
               </div>
               <p className="text-[11px] text-neutral-400">
-                ضع هذا الكود في نهاية الصفحة قبل إغلاق وسم <code>&lt;/body&gt;</code> ليظهر البوت مباشرة في أسفل الموقع.
+                Place this code just before the closing <code>&lt;/body&gt;</code> tag so the assistant appears instantly at the bottom of your site.
               </p>
             </div>
           </div>

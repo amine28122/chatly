@@ -69,6 +69,10 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Stable identity for this widget session (used for conversation logging)
+  const widgetVisitorId = useRef<string>(`vis-widget-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`).current;
+  const widgetConversationId = `conv-${bot.id}-${widgetVisitorId}`;
+
   // Sync welcome message reactively whenever bot name or welcomeMessage changes
   useEffect(() => {
     const welcomeText = bot.widgetConfig?.welcomeMessage || `Welcome to **${bot.name}**! 👋 How can I assist you today?`;
@@ -169,6 +173,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          botId: bot.id,
           botName: bot.name,
           systemPrompt: bot.systemPrompt,
           tone: bot.tone,
@@ -199,23 +204,24 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       const finalMessages = [...updatedHistory, botMsg];
       setMessages(finalMessages);
 
-      // Automatically log conversation transcript to server database for client portal
+      // Automatically log the conversation to the server (single message per call)
       try {
         fetch('/api/conversations/log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            conversationId: widgetConversationId,
             botId: bot.id,
             botName: bot.name,
-            visitorName: 'زائر موقع (Web Visitor)',
-            messages: finalMessages.map((m) => ({
-              id: m.id,
-              sender: m.sender,
-              text: m.text,
-              timestamp: m.timestamp,
-            })),
-            summary: text.slice(0, 100),
-            leadCaptured: false,
+            clientName: bot.clientName || 'Website Visitor',
+            visitorId: widgetVisitorId,
+            visitorName: 'Website Visitor',
+            message: {
+              id: botMsg.id,
+              sender: botMsg.sender,
+              text: botMsg.text,
+              timestamp: botMsg.timestamp,
+            },
           }),
         }).catch((err) => console.error('Silent log fail', err));
       } catch (e) {
@@ -247,9 +253,9 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
           botId: bot.id,
           botName: bot.name,
           clientName: bot.clientName || 'Website Lead',
-          name: leadName.trim(),
-          phone: leadPhone.trim(),
-          note: 'طلب تواصل مباشر من نافذة الشات بوت',
+          visitorName: leadName.trim(),
+          visitorPhone: leadPhone.trim(),
+          message: 'Direct contact request from the chat widget',
         }),
       });
 
@@ -559,14 +565,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
               {/* WhatsApp Direct Live Agent Transfer */}
               {(bot.whatsappNumber || bot.widgetConfig?.whatsappNumber) && (
                 <a
-                  href={`https://wa.me/${(bot.whatsappNumber || bot.widgetConfig?.whatsappNumber || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(bot.whatsappMessage || bot.widgetConfig?.whatsappMessage || 'مرحباً، أود التحدث مع فريق الدعم بخصوص استفساري على الموقع')}`}
+                  href={`https://wa.me/${(bot.whatsappNumber || bot.widgetConfig?.whatsappNumber || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(bot.whatsappMessage || bot.widgetConfig?.whatsappMessage || 'Hello! I would like to speak with your support team regarding my inquiry.')}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title="تواصل مباشرة عبر واتساب مع الدعم البشري"
+                  title="Chat directly with human support on WhatsApp"
                   className="px-2.5 py-1.5 bg-emerald-500/15 hover:bg-emerald-600 text-emerald-600 dark:text-emerald-400 hover:text-white rounded-xl transition-all border border-emerald-500/30 flex items-center gap-1.5 text-[11px] font-bold shadow-xs active:scale-95 group"
                 >
                   <PhoneCall className="w-3 h-3 group-hover:animate-bounce" />
-                  <span className="hidden sm:inline">واتساب</span>
+                  <span className="hidden sm:inline">WhatsApp</span>
                 </a>
               )}
 
@@ -728,7 +734,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-white flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>طلب اتصال أو استشارة سريعة</span>
+                    <span>Request a quick callback or consultation</span>
                   </span>
                   <button
                     type="button"
@@ -740,14 +746,14 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                 </div>
                 {leadSuccess ? (
                   <p className="text-emerald-400 font-bold text-center py-2">
-                    ✓ تم استلام بياناتك وسيتواصل معك الفريق فوراً!
+                    ✓ Received! Our team will contact you shortly.
                   </p>
                 ) : (
                   <>
                     <input
                       type="text"
                       required
-                      placeholder="الاسم الكريم..."
+                      placeholder="Your name..."
                       value={leadName}
                       onChange={(e) => setLeadName(e.target.value)}
                       className="w-full px-3 py-1.5 bg-black border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500"
@@ -755,7 +761,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                     <input
                       type="tel"
                       required
-                      placeholder="رقم الهاتف أو الواتساب..."
+                      placeholder="Phone / WhatsApp number..."
                       value={leadPhone}
                       onChange={(e) => setLeadPhone(e.target.value)}
                       className="w-full px-3 py-1.5 bg-black border border-zinc-700 rounded-xl text-white focus:outline-none focus:border-indigo-500 font-mono"
@@ -764,7 +770,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                       type="submit"
                       className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all"
                     >
-                      إرسال الطلب الآن
+                      Send request
                     </button>
                   </>
                 )}
@@ -777,17 +783,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                   className="text-[11px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1"
                 >
                   <Sparkles className="w-3 h-3" />
-                  <span>طلب اتصال أو حجز موعد مباشر</span>
+                  <span>Request a callback or direct booking</span>
                 </button>
                 {bot.whatsappNumber && (
                   <a
-                    href={`https://wa.me/${(bot.whatsappNumber || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent('مرحباً، أود التحدث مع الدعم بخصوص استفساري')}`}
+                    href={`https://wa.me/${(bot.whatsappNumber || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hello! I would like to speak with your support team about my inquiry.')}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1"
                   >
                     <PhoneCall className="w-3 h-3" />
-                    <span>واتساب</span>
+                    <span>WhatsApp</span>
                   </a>
                 )}
               </div>

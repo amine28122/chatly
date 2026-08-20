@@ -2,15 +2,18 @@ import fs from 'fs';
 import path from 'path';
 import { Chatbot } from '../src/types';
 import { DEFAULT_BOTS } from '../src/data/defaultBots';
+import { hashPassword, isHashedPassword, generatePassword } from './security';
+
+export type UserRole = 'admin' | 'client' | 'viewer';
 
 export interface ClientUser {
   id: string;
   email: string;
-  passwordHash: string; // Plain/hashed for demo
+  passwordHash: string; // Always stored as a scrypt hash (never plaintext).
   name: string;
   companyName: string;
   assignedBotIds: string[];
-  role: 'admin' | 'client';
+  role: UserRole;
   createdAt: string;
   lastLogin?: string;
 }
@@ -55,6 +58,9 @@ export interface AppDatabase {
   clientUsers: ClientUser[];
   conversations: StoredConversation[];
   leads: StoredLead[];
+  /** Per-bot Gemini API keys. Stored separately from the bot object so they are
+   *  never serialized into any bots() response — only used server-side on chat. */
+  geminiApiKeys?: Record<string, string>;
   agencyProfile: {
     name: string;
     email: string;
@@ -85,12 +91,22 @@ const INITIAL_CLIENT_USERS: ClientUser[] = [
     createdAt: new Date().toISOString(),
   },
   {
+    id: 'user-viewer',
+    email: 'viewer@agency.com',
+    passwordHash: 'viewer123',
+    name: 'Read-Only Analyst',
+    companyName: 'BotCraft AI Agency',
+    assignedBotIds: ['all'],
+    role: 'viewer',
+    createdAt: new Date().toISOString(),
+  },
+  {
     id: 'user-aura',
     email: 'client@auramaison.com',
     passwordHash: 'aura2026',
     name: 'Marcus Vance',
     companyName: 'AURA Maison Group',
-    assignedBotIds: ['bot-ecommerce-aura'],
+    assignedBotIds: ['bot-luxury-01'],
     role: 'client',
     createdAt: new Date().toISOString(),
   },
@@ -100,7 +116,7 @@ const INITIAL_CLIENT_USERS: ClientUser[] = [
     passwordHash: 'apex2026',
     name: 'Dr. Sarah Lin',
     companyName: 'Apex Health Institute',
-    assignedBotIds: ['bot-healthcare-apex'],
+    assignedBotIds: ['bot-clinic-02'],
     role: 'client',
     createdAt: new Date().toISOString(),
   },
@@ -110,7 +126,7 @@ const INITIAL_CLIENT_USERS: ClientUser[] = [
     passwordHash: 'nexus2026',
     name: 'Alexander Reed',
     companyName: 'Nexus Cloud Systems',
-    assignedBotIds: ['bot-saas-nexus'],
+    assignedBotIds: ['bot-saas-03'],
     role: 'client',
     createdAt: new Date().toISOString(),
   },
@@ -119,7 +135,7 @@ const INITIAL_CLIENT_USERS: ClientUser[] = [
 const INITIAL_LEADS: StoredLead[] = [
   {
     id: 'lead-1',
-    botId: 'bot-ecommerce-aura',
+    botId: 'bot-luxury-01',
     botName: 'AURA Concierge',
     clientName: 'AURA Maison Group',
     visitorName: 'Sophie Beaumont',
@@ -132,7 +148,7 @@ const INITIAL_LEADS: StoredLead[] = [
   },
   {
     id: 'lead-2',
-    botId: 'bot-healthcare-apex',
+    botId: 'bot-clinic-02',
     botName: 'Apex Clinical Advisor',
     clientName: 'Apex Health Institute',
     visitorName: 'Tariq Al-Mansoor',
@@ -145,9 +161,9 @@ const INITIAL_LEADS: StoredLead[] = [
   },
   {
     id: 'lead-3',
-    botId: 'bot-saas-nexus',
+    botId: 'bot-saas-03',
     botName: 'Nexus Cloud Architect',
-    clientName: 'Nexus Cloud Systems',
+    clientName: 'Nexus Cloud Systems Inc',
     visitorName: 'David Chen',
     visitorEmail: 'dchen@fintech-scale.io',
     visitorPhone: '+1 415 892 1104',
@@ -161,7 +177,7 @@ const INITIAL_LEADS: StoredLead[] = [
 const INITIAL_CONVERSATIONS: StoredConversation[] = [
   {
     id: 'conv-101',
-    botId: 'bot-ecommerce-aura',
+    botId: 'bot-luxury-01',
     botName: 'AURA Concierge',
     clientName: 'AURA Maison Group',
     visitorId: 'vis-aura-892',
@@ -181,7 +197,7 @@ const INITIAL_CONVERSATIONS: StoredConversation[] = [
   },
   {
     id: 'conv-102',
-    botId: 'bot-healthcare-apex',
+    botId: 'bot-clinic-02',
     botName: 'Apex Clinical Advisor',
     clientName: 'Apex Health Institute',
     visitorId: 'vis-apex-412',
@@ -207,13 +223,57 @@ class DatabaseEngine {
     this.data = this.load();
   }
 
+  /** Ensure every stored credential is a scrypt hash, seed accounts exist, and none of the default bots are missing. */
+  private normalizeSecrets(db: AppDatabase): AppDatabase {
+    const users = db.clientUsers.map((u) => ({
+      ...u,
+      passwordHash: isHashedPassword(u.passwordHash) ? u.passwordHash : hashPassword(u.passwordHash || generatePassword()),
+    }));
+
+    // Safety net: merge back any default bot that is missing from the persisted file.
+    const botIds = new Set(db.bots.map((b) => b.id));
+    for (const def of DEFAULT_BOTS) {
+      if (!botIds.has(def.id)) {
+        db.bots.push(def);
+        botIds.add(def.id);
+      }
+    }
+    if (!users.some((u) => u.email.toLowerCase() === 'admin@agency.com')) {
+      users.push({
+        id: 'user-admin',
+        email: 'admin@agency.com',
+        passwordHash: hashPassword('admin123'),
+        name: 'Agency Founder',
+        companyName: 'BotCraft AI Agency',
+        assignedBotIds: ['all'],
+        role: 'admin',
+        createdAt: new Date().toISOString(),
+      });
+    }
+    if (!users.some((u) => u.email.toLowerCase() === 'viewer@agency.com')) {
+      users.push({
+        id: 'user-viewer',
+        email: 'viewer@agency.com',
+        passwordHash: hashPassword('viewer123'),
+        name: 'Read-Only Analyst',
+        companyName: 'BotCraft AI Agency',
+        assignedBotIds: ['all'],
+        role: 'viewer',
+        createdAt: new Date().toISOString(),
+      });
+    }
+    db.clientUsers = users;
+    return db;
+  }
+
   private load(): AppDatabase {
+    let data: AppDatabase;
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
         if (parsed.bots && Array.isArray(parsed.bots)) {
-          return {
+          data = {
             bots: parsed.bots.length > 0 ? parsed.bots : DEFAULT_BOTS,
             clientUsers: parsed.clientUsers || INITIAL_CLIENT_USERS,
             conversations: parsed.conversations || INITIAL_CONVERSATIONS,
@@ -226,28 +286,44 @@ class DatabaseEngine {
               brandName: 'BotCraft AI',
             },
           };
+        } else {
+          throw new Error('Invalid database structure');
         }
+      } else {
+        data = {
+          bots: DEFAULT_BOTS,
+          clientUsers: INITIAL_CLIENT_USERS,
+          conversations: INITIAL_CONVERSATIONS,
+          leads: INITIAL_LEADS,
+          agencyProfile: {
+            name: 'BotCraft Agency',
+            email: 'admin@agency.com',
+            phone: '+1 800 555 0199',
+            website: 'https://botcraft.ai',
+            brandName: 'BotCraft AI',
+          },
+        };
       }
     } catch (e) {
-      console.error('Error reading database file, using fallback initial data:', e);
+      console.error('Error reading database file, using fresh seed data:', e);
+      data = {
+        bots: DEFAULT_BOTS,
+        clientUsers: INITIAL_CLIENT_USERS,
+        conversations: INITIAL_CONVERSATIONS,
+        leads: INITIAL_LEADS,
+        agencyProfile: {
+          name: 'BotCraft Agency',
+          email: 'admin@agency.com',
+          phone: '+1 800 555 0199',
+          website: 'https://botcraft.ai',
+          brandName: 'BotCraft AI',
+        },
+      };
     }
 
-    const initial: AppDatabase = {
-      bots: DEFAULT_BOTS,
-      clientUsers: INITIAL_CLIENT_USERS,
-      conversations: INITIAL_CONVERSATIONS,
-      leads: INITIAL_LEADS,
-      agencyProfile: {
-        name: 'BotCraft Agency',
-        email: 'admin@agency.com',
-        phone: '+1 800 555 0199',
-        website: 'https://botcraft.ai',
-        brandName: 'BotCraft AI',
-      },
-    };
-
-    this.saveDirect(initial);
-    return initial;
+    const normalized = this.normalizeSecrets(data);
+    this.saveDirect(normalized);
+    return normalized;
   }
 
   private saveDirect(db: AppDatabase) {
@@ -306,7 +382,7 @@ class DatabaseEngine {
       this.data.clientUsers[existingIdx] = {
         ...existing,
         email: targetEmail,
-        passwordHash: targetPassword,
+        passwordHash: isHashedPassword(targetPassword) ? targetPassword : hashPassword(targetPassword),
         name: cleanCompanyName,
         companyName: cleanCompanyName,
         assignedBotIds: botIds,
@@ -315,7 +391,7 @@ class DatabaseEngine {
       this.data.clientUsers.push({
         id: `user-client-${bot.id}`,
         email: targetEmail,
-        passwordHash: targetPassword,
+        passwordHash: isHashedPassword(targetPassword) ? targetPassword : hashPassword(targetPassword),
         name: cleanCompanyName,
         companyName: cleanCompanyName,
         assignedBotIds: [bot.id],
@@ -332,10 +408,35 @@ class DatabaseEngine {
     const initialLen = this.data.bots.length;
     this.data.bots = this.data.bots.filter((b) => b.id !== id);
     if (this.data.bots.length !== initialLen) {
+      // Also remove this bot's private API key (if any).
+      if (this.data.geminiApiKeys && id in this.data.geminiApiKeys) {
+        delete this.data.geminiApiKeys[id];
+      }
       this.save();
       return true;
     }
     return false;
+  }
+
+  // --- PER-BOT GEMINI API KEYS (admin-managed, never exposed to clients) ---
+  public getBotApiKey(botId: string): string | null {
+    if (!this.data.geminiApiKeys) return null;
+    const key = this.data.geminiApiKeys[botId];
+    return typeof key === "string" && key.length > 0 ? key : null;
+  }
+
+  public hasBotApiKey(botId: string): boolean {
+    return this.getBotApiKey(botId) !== null;
+  }
+
+  public setBotApiKey(botId: string, key: string | null): void {
+    if (!this.data.geminiApiKeys) this.data.geminiApiKeys = {};
+    if (key && key.trim().length > 0) {
+      this.data.geminiApiKeys[botId] = key.trim();
+    } else {
+      delete this.data.geminiApiKeys[botId];
+    }
+    this.save();
   }
 
   // --- CLIENT USERS ---
@@ -347,15 +448,24 @@ class DatabaseEngine {
     return this.data.clientUsers.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
   }
 
+  public getUserById(id: string): ClientUser | undefined {
+    return this.data.clientUsers.find((u) => u.id === id);
+  }
+
   public upsertClientUser(user: ClientUser): ClientUser {
     const idx = this.data.clientUsers.findIndex((u) => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+    const stored: ClientUser = {
+      ...user,
+      email: user.email.toLowerCase().trim(),
+      passwordHash: isHashedPassword(user.passwordHash) ? user.passwordHash : hashPassword(user.passwordHash || generatePassword()),
+    };
     if (idx >= 0) {
-      this.data.clientUsers[idx] = { ...this.data.clientUsers[idx], ...user };
+      this.data.clientUsers[idx] = { ...this.data.clientUsers[idx], ...stored };
     } else {
-      this.data.clientUsers.push(user);
+      this.data.clientUsers.push(stored);
     }
     this.save();
-    return user;
+    return stored;
   }
 
   public deleteClientUser(id: string): boolean {

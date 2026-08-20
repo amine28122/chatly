@@ -57,9 +57,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [isQuickAnalyzing, setIsQuickAnalyzing] = useState(false);
   const [quickStatus, setQuickStatus] = useState<string | null>(null);
 
+  // Viewer accounts have read-only privileges enforced server-side too.
+  const isReadOnly = user?.role === 'viewer';
+  const isClient = user?.role === 'client';
+  const isAdmin = user?.role === 'admin';
+
   // Instant AI Bot Generator from any website URL
   const handleQuickGenerateFromUrl = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) {
+      setQuickStatus('Viewer accounts are read-only — sign in as an admin to create bots.');
+      return;
+    }
     let clean = quickUrl.trim();
     if (!clean) return;
 
@@ -173,6 +182,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleCreateNewBot = (presetUrl?: string) => {
+    if (!isAdmin) return;
     const defaultSuffix = Date.now().toString().slice(-4);
     const newBot: Chatbot = {
       id: `bot-${Date.now()}`,
@@ -331,6 +341,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <BotEditor
           bot={selectedBot}
           isNewBot={isNewBot}
+          isAdminKey={isAdmin}
           onSave={handleSaveBot}
           onCancel={() => onNavigate('dashboard')}
           onOpenSimulator={handleOpenSimulator}
@@ -386,22 +397,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* 1. TOP INSTANT BOT GENERATOR HERO BANNER */}
+      {/* 1. TOP INSTANT BOT GENERATOR HERO BANNER (admin only) */}
+      {isAdmin && (
       <div className="mb-8 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-indigo-950/40 border border-zinc-800 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="relative z-10 max-w-3xl space-y-3 text-right">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold">
             <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>محرك التوليد الفوري للمساعدين الأذكياء</span>
+            <span>Instant AI Assistant Generator</span>
           </div>
 
           <h1 className="text-xl sm:text-3xl font-extrabold text-white font-['Outfit',sans-serif] tracking-tight">
-            أنشئ شات بوت ذكي مخصص لأي موقع عميل في 10 ثوانٍ
+            Build a custom AI chatbot for any client website in 10 seconds
           </h1>
 
           <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-2xl">
-            أدخل رابط موقع عميلك، وسيقوم الذكاء الاصطناعي بتحليل كتالوج المنتجات، نبرة الصوت، وألوان الهوية، وإنشاء مساعد ذكي متكامل وجاهز للربط والعرض.
+            Enter your client's website URL and the AI will analyze its product catalog, tone of voice, and brand colors — then build a complete ready-to-embed assistant.
           </p>
 
           {/* Quick Input Form */}
@@ -412,7 +424,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 type="text"
                 value={quickUrl}
                 onChange={(e) => setQuickUrl(e.target.value)}
-                placeholder="أدخل رابط موقع العميل (مثال: https://myshop.com)..."
+                placeholder="Enter client website URL (e.g. https://myshop.com)..."
                 className="w-full bg-black/70 border border-zinc-800 focus:border-indigo-500 rounded-2xl pl-11 pr-4 py-3 text-xs text-white placeholder-zinc-500 focus:outline-none transition-colors font-mono text-left"
                 dir="ltr"
               />
@@ -426,12 +438,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {isQuickAnalyzing ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>جارٍ الفحص والتوليد...</span>
+                  <span>Analyzing & generating...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>توليد البوت الآن</span>
+                  <span>Generate Bot Now</span>
                 </>
               )}
             </button>
@@ -445,6 +457,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* 2. SUBNAV TOOLBAR */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8 border-b border-zinc-800/80 pb-4">
@@ -458,7 +471,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }`}
           >
             <Bot className="w-4 h-4" />
-            <span>قائمة الشات بوتات ({bots.length})</span>
+            <span>All Bots ({bots.length})</span>
           </button>
 
           <button
@@ -470,7 +483,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             }`}
           >
             <BarChart3 className="w-4 h-4 text-amber-400" />
-            <span>التحليلات والمحادثات</span>
+            <span>Analytics & Conversations</span>
           </button>
 
           <button
@@ -481,35 +494,41 @@ export const Dashboard: React.FC<DashboardProps> = ({
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-zinc-400 hover:text-zinc-200 transition-all"
           >
             <MonitorPlay className="w-4 h-4 text-emerald-400" />
-            <span>محاكي المواقع</span>
+            <span>Website Simulator</span>
           </button>
 
-          {/* Client Portals Manager Button */}
-          <button
-            onClick={() => setIsClientAccountsOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all shadow-xs"
-          >
-            <Users className="w-4 h-4 text-indigo-400" />
-            <span>حسابات وبوابات العملاء</span>
-          </button>
+          {/* Client Portals Manager Button (admin only) */}
+          {isAdmin && (
+            <button
+              onClick={() => setIsClientAccountsOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all shadow-xs"
+            >
+              <Users className="w-4 h-4 text-indigo-400" />
+              <span>Client Accounts & Portals</span>
+            </button>
+          )}
 
-          {/* Direct Client Portal Preview */}
-          <button
-            onClick={() => onNavigate('client_portal')}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all shadow-xs"
-          >
-            <Building2 className="w-4 h-4 text-amber-400" />
-            <span>معاينة لوحة العميل</span>
-          </button>
+          {/* Direct Client Portal Preview (admin only) */}
+          {isAdmin && (
+            <button
+              onClick={() => onNavigate('client_portal')}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all shadow-xs"
+            >
+              <Building2 className="w-4 h-4 text-amber-400" />
+              <span>Client Portal Preview</span>
+            </button>
+          )}
         </div>
 
-        <button
-          onClick={() => handleCreateNewBot()}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
-        >
-          <Plus className="w-4 h-4" />
-          <span>إنشاء بوت يدوي جديد</span>
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => handleCreateNewBot()}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Manual Bot</span>
+          </button>
+        )}
       </div>
 
       {/* Main Content Area */}
@@ -518,6 +537,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       ) : (
         <BotList
           bots={bots}
+          isAdmin={isAdmin}
+          canManageBot={!isReadOnly}
           onCreateNewBot={() => handleCreateNewBot()}
           onEditBot={(b) => {
             onSelectBot(b);

@@ -61,6 +61,7 @@ import { ChatWidget } from './ChatWidget';
 interface BotEditorProps {
   bot: Chatbot;
   isNewBot?: boolean;
+  isAdminKey?: boolean;
   onSave: (updatedBot: Chatbot) => void;
   onCancel: () => void;
   onOpenSimulator: (bot: Chatbot) => void;
@@ -72,6 +73,7 @@ interface BotEditorProps {
 export const BotEditor: React.FC<BotEditorProps> = ({
   bot,
   isNewBot = false,
+  isAdminKey = false,
   onSave,
   onCancel,
   onOpenSimulator,
@@ -94,6 +96,74 @@ export const BotEditor: React.FC<BotEditorProps> = ({
   const [showProvisionedModal, setShowProvisionedModal] = useState(false);
   const [sandboxMode, setSandboxMode] = useState<'chat_window' | 'launcher_button'>('chat_window');
   const [newTagInput, setNewTagInput] = useState('');
+
+  // Per-bot Gemini key (admin only) state
+  const [botKeyInput, setBotKeyInput] = useState('');
+  const [botKeyStatus, setBotKeyStatus] = useState<boolean | null>(null);
+  const [keyActionMsg, setKeyActionMsg] = useState<string | null>(null);
+
+  // Load whether this bot already has a dedicated key (never the key value itself)
+  useEffect(() => {
+    if (!isAdminKey || !currentBot.id || isNewBot) {
+      setBotKeyStatus(null);
+      return;
+    }
+    fetch(`/api/bots/${encodeURIComponent(currentBot.id)}/apikey`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d) setBotKeyStatus(!!d.hasKey);
+      })
+      .catch(() => {
+        setBotKeyStatus(null);
+      });
+  }, [isAdminKey, currentBot.id, isNewBot]);
+
+  const handleSaveBotKey = async () => {
+    if (!isAdminKey || !currentBot.id || isNewBot) return;
+    setKeyActionMsg(null);
+    try {
+      const res = await fetch(`/api/bots/${encodeURIComponent(currentBot.id)}/apikey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: botKeyInput }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBotKeyStatus(!!data.hasKey);
+        setBotKeyInput('');
+        setKeyActionMsg(data.hasKey ? '✓ Dedicated key saved (used only by this bot).' : 'Key removed.');
+      } else {
+        setKeyActionMsg(data.error || 'Could not save the key.');
+      }
+      setTimeout(() => setKeyActionMsg(null), 4000);
+    } catch (e) {
+      setKeyActionMsg('Failed to save the key.');
+      setTimeout(() => setKeyActionMsg(null), 4000);
+    }
+  };
+
+  const handleRemoveBotKey = async () => {
+    if (!isAdminKey || !currentBot.id) return;
+    setKeyActionMsg(null);
+    try {
+      const res = await fetch(`/api/bots/${encodeURIComponent(currentBot.id)}/apikey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: '' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBotKeyStatus(false);
+        setKeyActionMsg('Key removed. The bot now uses the platform master key.');
+      } else {
+        setKeyActionMsg(data.error || 'Could not remove the key.');
+      }
+      setTimeout(() => setKeyActionMsg(null), 4000);
+    } catch (err) {
+      setKeyActionMsg('Failed to remove the key.');
+      setTimeout(() => setKeyActionMsg(null), 4000);
+    }
+  };
 
   // Sync state whenever the selected bot prop changes
   useEffect(() => {
@@ -339,7 +409,7 @@ export const BotEditor: React.FC<BotEditorProps> = ({
       }));
 
       const crawledCount = data.crawledPagesCount || 1;
-      setAnalysisStatus(`✓ تم فحص ${crawledCount} صفحات من الموقع واستخراج المعرفة الشاملة، والأسئلة الشائعة، ومعلومات التواصل بنجاح!`);
+      setAnalysisStatus(`✓ Scanned ${crawledCount} pages — extracted knowledge base, FAQs, and contact info!`);
       setTimeout(() => setAnalysisStatus(null), 6000);
     } catch (e: any) {
       console.error('Website analysis failed:', e);
@@ -693,29 +763,29 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                     <div className="flex items-center gap-2">
                       <KeyRound className="w-4 h-4 text-emerald-400" />
                       <span className="font-bold text-white text-xs font-['Outfit',sans-serif]">
-                        بيانات دخول لوحة تحكم العميل (Client Portal Gmail & Password)
+                        Client Portal Login Details (Gmail & Password)
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
-                      لوحة معزولة تلقائياً
+                      Auto-isolated portal
                     </span>
                   </div>
 
                   <p className="text-[11px] text-zinc-400 leading-relaxed">
-                    عند الضغط على <strong>حفظ</strong>، يتم فوراً إنشاء حساب ولوحة تحكم معزولة للعميل يدخل لها بمفرده لمتابعة محادثات ورسائل وزوار هذا البوت فقط.
+                    On <strong>Save</strong>, a dedicated isolated client portal is auto-created so the client can log in and follow conversations, leads, and visitors for this bot only.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block font-semibold text-zinc-300 mb-1 flex items-center gap-1">
                         <Mail className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>جيميل / بريد العميل (Client Gmail):</span>
+                        <span>Client email (Gmail):</span>
                       </label>
                       <input
                         type="email"
                         value={currentBot.clientEmail || ''}
                         onChange={(e) => setCurrentBot({ ...currentBot, clientEmail: e.target.value })}
-                        placeholder="client@gmail.com أو info@company.com"
+                        placeholder="client@gmail.com or info@company.com"
                         className="w-full bg-black/70 border border-zinc-800 rounded-xl px-3.5 py-2 text-emerald-300 font-mono text-xs focus:outline-none focus:border-emerald-500"
                       />
                     </div>
@@ -723,13 +793,13 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                     <div>
                       <label className="block font-semibold text-zinc-300 mb-1 flex items-center gap-1">
                         <Lock className="w-3.5 h-3.5 text-indigo-400" />
-                        <span>كلمة سر دخول لوحة العميل (Password):</span>
+                        <span>Client portal password:</span>
                       </label>
                       <input
                         type="text"
                         value={currentBot.clientPassword || ''}
                         onChange={(e) => setCurrentBot({ ...currentBot, clientPassword: e.target.value })}
-                        placeholder="client2026 أو كلمة سر مخصصة"
+                        placeholder="client2026 or a custom password"
                         className="w-full bg-black/70 border border-zinc-800 rounded-xl px-3.5 py-2 text-indigo-300 font-mono text-xs focus:outline-none focus:border-indigo-500"
                       />
                     </div>
@@ -737,7 +807,7 @@ export const BotEditor: React.FC<BotEditorProps> = ({
 
                   <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-zinc-400 pt-1 border-t border-zinc-800/80">
                     <div className="flex items-center gap-1">
-                      <span>رابط تسجيل الدخول الموحد للعملاء:</span>
+                      <span>Unified client login link:</span>
                       <span className="font-mono text-zinc-200 font-bold bg-black/50 px-1.5 py-0.5 rounded border border-zinc-800">
                         {typeof window !== 'undefined' ? `${window.location.origin}/?portal=true` : '/?portal=true'}
                       </span>
@@ -759,11 +829,67 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                         className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 underline underline-offset-2"
                       >
                         <Eye className="w-3 h-3" />
-                        <span>معاينة لوحة تحكم العميل الآن</span>
+                        <span>Preview client dashboard now</span>
                       </button>
                     )}
                   </div>
                 </div>
+
+                {/* Admin-only: dedicated Gemini API key for THIS bot */}
+                {isAdminKey && (
+                  <div className="p-3.5 bg-gradient-to-br from-indigo-950/40 via-zinc-950 to-amber-950/30 border border-amber-500/25 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-amber-400" />
+                        <span className="font-bold text-white text-xs">Dedicated Gemini Key (admin only)</span>
+                      </div>
+                      {botKeyStatus === true ? (
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">✓ Key set</span>
+                      ) : botKeyStatus === false ? (
+                        <span className="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-400 text-[10px] font-bold border border-zinc-700">Uses platform key</span>
+                      ) : null}
+                    </div>
+
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      Set a dedicated Gemini key for this bot. It is stored securely server-side and is never shown to — or editable by — the client.
+                      When this bot replies to visitors, it uses exactly this key and your platform master key stays protected.
+                    </p>
+
+                    {isNewBot ? (
+                      <p className="text-[11px] text-amber-300 font-semibold">Save the bot first, then return here to set its dedicated key.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <input
+                          type="password"
+                          value={botKeyInput}
+                          onChange={(e) => setBotKeyInput(e.target.value)}
+                          placeholder="Paste the bot's Gemini API key (e.g. AIza...)"
+                          className="w-full bg-black/70 border border-zinc-800 rounded-xl px-3.5 py-2 text-white font-mono text-xs focus:outline-none focus:border-amber-500"
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveBotKey}
+                            disabled={!botKeyInput.trim()}
+                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all"
+                          >
+                            Save Key
+                          </button>
+                          {botKeyStatus === true && (
+                            <button
+                              type="button"
+                              onClick={handleRemoveBotKey}
+                              className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold transition-all"
+                            >
+                              Remove
+                            </button>
+                          )}
+                          {keyActionMsg && <span className="text-[11px] text-emerald-400">{keyActionMsg}</span>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Tags Manager */}
                 <div>
@@ -2048,10 +2174,10 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                     </div>
                     <div>
                       <h4 className="text-sm font-bold text-white font-['Outfit',sans-serif]">
-                        بوابة ولوحة تحكم العميل المخصصة لهذا البوت (Client Portal)
+                        Dedicated Client Portal for this bot
                       </h4>
                       <p className="text-zinc-400 text-[11px]">
-                        لوحة تحكم خاصة بصاحب هذا البوت فقط ({currentBot.clientName || currentBot.name}) لمتابعة العملاء والمحادثات.
+                        Private dashboard for this bot's owner ({currentBot.clientName || currentBot.name}) to follow leads and conversations.
                       </p>
                     </div>
                   </div>
@@ -2074,21 +2200,21 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-1.5 shrink-0"
                     >
                       <Eye className="w-3.5 h-3.5" />
-                      <span>دخول لوحة تحكم العميل فوراً</span>
+                      <span>Open client dashboard now</span>
                     </button>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-zinc-800/80">
                   <div className="p-3 bg-black/60 rounded-xl border border-zinc-800 space-y-1">
-                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">جيميل / بريد تسجيل دخول العميل:</span>
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Client login email:</span>
                     <p className="font-mono text-emerald-300 font-bold select-all">
                       {currentBot.clientEmail || `client@${((currentBot.clientName || currentBot.name).toLowerCase().replace(/[^a-z0-9]/g, '') || 'client').slice(0, 15)}.com`}
                     </p>
                   </div>
 
                   <div className="p-3 bg-black/60 rounded-xl border border-zinc-800 space-y-1">
-                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">كلمة مرور لوحة العميل:</span>
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">Client portal password:</span>
                     <p className="font-mono text-indigo-300 font-bold select-all">
                       {currentBot.clientPassword || `${((currentBot.clientName || currentBot.name).toLowerCase().replace(/[^a-z0-9]/g, '') || 'client').slice(0, 8)}2026`}
                     </p>
@@ -2102,14 +2228,14 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                       const clean = (currentBot.clientName || currentBot.name).toLowerCase().replace(/[^a-z0-9]/g, '') || 'client';
                       const email = currentBot.clientEmail || `client@${clean.slice(0, 15)}.com`;
                       const pass = currentBot.clientPassword || `${clean.slice(0, 8)}2026`;
-                      const text = `مرحباً بك! 🎉\nتم تجهيز الشات بوت الذكي الخاص بشركتكم (${currentBot.clientName || currentBot.name}):\n\n🔗 رابط تجربة البوت المستقل:\n${window.location.origin}/?demo=${currentBot.id}\n\n🔐 رابط لوحة التحكم الخاصة بكم لمتابعة العملاء والمحادثات:\n${window.location.origin}/?portal=true\n- البريد (Gmail): ${email}\n- كلمة المرور: ${pass}`;
+                      const text = `Welcome! 🎉\nYour company's AI assistant (${currentBot.clientName || currentBot.name}) is ready:\n\n🔗 Live bot demo link:\n${window.location.origin}/?demo=${currentBot.id}\n\n🔐 Your private client portal for conversations & leads:\n${window.location.origin}/?portal=true\n- Login (Gmail): ${email}\n- Password: ${pass}`;
                       navigator.clipboard.writeText(text);
-                      alert('✓ تم نسخ رسالة الواتساب الجاهزة ببيانات دخول لوحة العميل ورابط التجربة!');
+                      alert('✓ Copied the welcome card with client login details!');
                     }}
                     className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
                   >
                     <Copy className="w-3 h-3 text-emerald-400" />
-                    <span>نسخ بطاقة الترحيب ببيانات الدخول للعميل</span>
+                    <span>Copy client welcome & credentials card</span>
                   </button>
 
                   <a
@@ -2119,7 +2245,7 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                     className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
                   >
                     <ExternalLink className="w-3 h-3 text-indigo-400" />
-                    <span>فتح رابط المعاينة المستقل (?demo={currentBot.id})</span>
+                    <span>Open standalone preview link (?demo={currentBot.id})</span>
                   </a>
                 </div>
               </div>
@@ -2144,14 +2270,14 @@ export const BotEditor: React.FC<BotEditorProps> = ({
               <div>
                 <label className="block font-semibold text-neutral-300 mb-1.5">Universal JavaScript Script Tag</label>
                 <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-3 font-mono text-[11px] text-indigo-300 overflow-x-auto select-all">
-                  {`<script src="https://cdn.botcraft.ai/widget.js" data-bot-id="${currentBot.id}" defer></script>`}
+                  {`<script src="${window.location.origin}/widget.js" data-bot-id="${currentBot.id}" defer></script>`}
                 </div>
               </div>
 
               <div>
                 <label className="block font-semibold text-neutral-300 mb-1.5">Iframe Sandbox Embed</label>
                 <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-3 font-mono text-[11px] text-emerald-300 overflow-x-auto select-all">
-                  {`<iframe src="https://botcraft.ai/embed/${currentBot.id}" width="100%" height="600" frameborder="0"></iframe>`}
+                  {`<iframe src="${window.location.origin}/chat/${currentBot.id}" width="100%" height="600" frameborder="0"></iframe>`}
                 </div>
               </div>
             </div>
@@ -2226,10 +2352,10 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h3 className="text-lg font-bold text-white font-['Outfit',sans-serif]">
-                تم حفظ البوت وتجهيز لوحة العميل بنجاح! 🎉
+                Bot saved and client portal provisioned! 🎉
               </h3>
               <p className="text-xs text-zinc-400">
-                تم إنشاء حساب ولوحة تحكم مخصصة ومعزولة لـ ({currentBot.clientName || currentBot.name}).
+                A dedicated, isolated dashboard was created for ({currentBot.clientName || currentBot.name}).
               </p>
             </div>
 
@@ -2237,26 +2363,26 @@ export const BotEditor: React.FC<BotEditorProps> = ({
               {/* Credentials Box */}
               <div className="bg-black/80 border border-zinc-800 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2">
-                  <span className="text-zinc-400 font-medium">الشركة / العميل:</span>
+                  <span className="text-zinc-400 font-medium">Company / Client:</span>
                   <span className="text-white font-bold">{currentBot.clientName || currentBot.name}</span>
                 </div>
 
                 <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2">
-                  <span className="text-zinc-400 font-medium">جيميل / بريد تسجيل الدخول:</span>
+                  <span className="text-zinc-400 font-medium">Login email:</span>
                   <span className="font-mono text-emerald-300 font-bold select-all bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/20">
                     {currentBot.clientEmail || `client@example.com`}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2">
-                  <span className="text-zinc-400 font-medium">كلمة سر لوحة العميل:</span>
+                  <span className="text-zinc-400 font-medium">Client portal password:</span>
                   <span className="font-mono text-indigo-300 font-bold select-all bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-500/20">
                     {currentBot.clientPassword || `client2026`}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-zinc-400 font-medium">رابط لوحة التحكم للعميل:</span>
+                  <span className="text-zinc-400 font-medium">Client dashboard link:</span>
                   <span className="font-mono text-amber-300 text-[11px] font-bold select-all">
                     {typeof window !== 'undefined' ? `${window.location.origin}/?portal=true` : '/?portal=true'}
                   </span>
@@ -2282,7 +2408,7 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                     className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all"
                   >
                     <Eye className="w-4 h-4" />
-                    <span>دخول لوحة تحكم العميل فوراً لمعاينتها</span>
+                    <span>Open client dashboard to preview</span>
                   </button>
                 )}
 
@@ -2291,14 +2417,14 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                   onClick={() => {
                     const email = currentBot.clientEmail || `client@example.com`;
                     const pass = currentBot.clientPassword || `client2026`;
-                    const text = `مرحباً بك! 🎉\nتم تجهيز الشات بوت الذكي الخاص بشركتكم (${currentBot.clientName || currentBot.name}):\n\n🔗 رابط تجربة البوت المستقل:\n${window.location.origin}/?demo=${currentBot.id}\n\n🔐 رابط لوحة التحكم الخاصة بكم لمتابعة العملاء والمحادثات:\n${window.location.origin}/?portal=true\n- البريد (Gmail): ${email}\n- كلمة المرور: ${pass}`;
+                    const text = `Welcome! 🎉\nYour company's AI assistant (${currentBot.clientName || currentBot.name}) is ready:\n\n🔗 Live bot demo link:\n${window.location.origin}/?demo=${currentBot.id}\n\n🔐 Your private client portal for conversations & leads:\n${window.location.origin}/?portal=true\n- Login (Gmail): ${email}\n- Password: ${pass}`;
                     navigator.clipboard.writeText(text);
-                    alert('✓ تم نسخ بطاقة الترحيب ببيانات الدخول للواتساب!');
+                    alert('✓ Copied the WhatsApp welcome message with login details!');
                   }}
                   className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white rounded-xl font-bold border border-zinc-800 flex items-center justify-center gap-2 transition-all"
                 >
                   <Copy className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>نسخ رسالة الواتساب الجاهزة ببيانات الدخول والرابط</span>
+                  <span>Copy ready WhatsApp welcome message</span>
                 </button>
 
                 <div className="flex gap-2">
@@ -2309,7 +2435,7 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                     className="flex-1 py-2 bg-zinc-900 hover:bg-zinc-800 text-indigo-300 hover:text-indigo-200 rounded-xl font-bold border border-zinc-800 flex items-center justify-center gap-1.5 transition-all text-[11px]"
                   >
                     <ExternalLink className="w-3 h-3" />
-                    <span>فتح رابط المعاينة المستقل</span>
+                    <span>Open standalone preview link</span>
                   </a>
 
                   <button
@@ -2317,7 +2443,7 @@ export const BotEditor: React.FC<BotEditorProps> = ({
                     onClick={() => setShowProvisionedModal(false)}
                     className="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-xl font-bold text-[11px] transition-all"
                   >
-                    إغلاق
+                    Close
                   </button>
                 </div>
               </div>

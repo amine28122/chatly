@@ -172,7 +172,7 @@ export function ClientPortal({
         body: JSON.stringify(updatedBot)
       });
 
-      setSaveStatus('✓ تم حفظ إعدادات البوت والبيانات بنجاح!');
+      setSaveStatus('✓ Bot settings saved successfully!');
       setTimeout(() => setSaveStatus(null), 4000);
     } catch (e) {
       console.error('Failed to save bot settings', e);
@@ -249,7 +249,7 @@ export function ClientPortal({
                 </span>
               </div>
               <p className="text-xs text-zinc-400">
-                لوحة تحكم العميل المخصصة • {user.email}
+                Client dashboard • {user.email}
               </p>
             </div>
           </div>
@@ -283,7 +283,7 @@ export function ClientPortal({
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 hover:text-white rounded-xl text-xs font-semibold border border-zinc-800 transition-all shadow-xs"
           >
             <Eye className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="hidden md:inline">معاينة رابط البوت المستقل</span>
+            <span className="hidden md:inline">Preview standalone bot link</span>
             <ExternalLink className="w-3 h-3 text-zinc-500" />
           </a>
 
@@ -294,13 +294,13 @@ export function ClientPortal({
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-bold transition-all"
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>العودة للوحة الإدارة العامة (Admin)</span>
+              <span>Back to Admin Dashboard</span>
             </button>
           )}
 
           <button
             onClick={onLogout}
-            title="تسجيل الخروج"
+            title="Sign out"
             className="p-2 hover:bg-zinc-900 text-zinc-400 hover:text-rose-400 rounded-xl border border-transparent hover:border-zinc-800 transition-all"
           >
             <LogOut className="w-4 h-4" />
@@ -322,7 +322,7 @@ export function ClientPortal({
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>بيانات العملاء والطلبات (Leads CRM)</span>
+              <span>Leads & Requests (CRM)</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] bg-black/40 text-indigo-200">
                 {leads.length}
               </span>
@@ -337,7 +337,7 @@ export function ClientPortal({
               }`}
             >
               <MessageSquare className="w-4 h-4" />
-              <span>سجل المحادثات الحية (Transcripts)</span>
+              <span>Live Conversation Transcripts</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] bg-black/40 text-indigo-200">
                 {conversations.length}
               </span>
@@ -352,7 +352,7 @@ export function ClientPortal({
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              <span>إحصائيات الأداء (Analytics)</span>
+              <span>Performance Analytics</span>
             </button>
 
             <button
@@ -364,7 +364,7 @@ export function ClientPortal({
               }`}
             >
               <Code2 className="w-4 h-4" />
-              <span>أكواد التضمين لموقعك (Embed Code)</span>
+              <span>Embed Code for Your Website</span>
             </button>
 
             <button
@@ -376,17 +376,17 @@ export function ClientPortal({
               }`}
             >
               <Settings className="w-4 h-4" />
-              <span>إعدادات الواتساب والبوت</span>
+              <span>WhatsApp & Bot Settings</span>
             </button>
           </div>
 
           <button
             onClick={fetchData}
-            title="تحديث البيانات"
+            title="Refresh data"
             className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs border border-zinc-800 transition-all"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
-            <span>تحديث</span>
+            <span>Refresh</span>
           </button>
         </div>
 
@@ -399,7 +399,7 @@ export function ClientPortal({
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
                 <input
                   type="text"
-                  placeholder="البحث بالاسم، رقم الهاتف، أو الإيميل..."
+                  placeholder="Search by name, phone, or email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
@@ -413,7 +413,7 @@ export function ClientPortal({
                   className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
                 >
                   <Download className="w-4 h-4" />
-                  <span>تصدير إلى Excel / CSV</span>
+                  <span>Export to Excel / CSV</span>
                 </button>
               </div>
             </div>
@@ -424,13 +424,13 @@ export function ClientPortal({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-zinc-900/90 text-zinc-400 uppercase text-[10px] tracking-wider border-b border-zinc-800">
                     <tr>
-                      <th className="py-3.5 px-4 font-bold">اسم الزائر</th>
-                      <th className="py-3.5 px-4 font-bold">رقم الهاتف / الواتساب</th>
-                      <th className="py-3.5 px-4 font-bold">البريد الإلكتروني</th>
-                      <th className="py-3.5 px-4 font-bold">تفاصيل الطلب / الاستفسار</th>
-                      <th className="py-3.5 px-4 font-bold">تاريخ التسجيل</th>
-                      <th className="py-3.5 px-4 font-bold">حالة المتابعة</th>
-                      <th className="py-3.5 px-4 font-bold text-right">إجراء سريع</th>
+                      <th className="py-3.5 px-4 font-bold">Visitor name</th>
+                      <th className="py-3.5 px-4 font-bold">Phone / WhatsApp</th>
+                      <th className="py-3.5 px-4 font-bold">Email</th>
+                      <th className="py-3.5 px-4 font-bold">Inquiry / request</th>
+                      <th className="py-3.5 px-4 font-bold">Date</th>
+                      <th className="py-3.5 px-4 font-bold">Status</th>
+                      <th className="py-3.5 px-4 font-bold text-right">Quick action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/60">
@@ -438,8 +438,8 @@ export function ClientPortal({
                       <tr>
                         <td colSpan={7} className="py-12 text-center text-zinc-500">
                           <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                          <p>لا توجد طلبات مسجلة حتى الآن.</p>
-                          <p className="text-[11px] text-zinc-600 mt-1">سيقوم البوت بجمع أرقام وبيانات العملاء المهتمين فور بدء المحادثات على موقعك.</p>
+                          <p>No lead requests yet.</p>
+                          <p className="text-[11px] text-zinc-600 mt-1">The bot will start collecting interested visitors' contact details as conversations begin on your website.</p>
                         </td>
                       </tr>
                     ) : (
@@ -455,10 +455,10 @@ export function ClientPortal({
                             {lead.visitorEmail || '—'}
                           </td>
                           <td className="py-3.5 px-4 text-zinc-300 max-w-xs truncate" title={lead.message}>
-                            {lead.message || 'استفسار عام عبر الشات بوت'}
+                            {lead.message || 'General inquiry via the chatbot'}
                           </td>
                           <td className="py-3.5 px-4 text-zinc-400 whitespace-nowrap">
-                            {new Date(lead.createdAt).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            {new Date(lead.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </td>
                           <td className="py-3.5 px-4">
                             <select
@@ -474,25 +474,25 @@ export function ClientPortal({
                                   : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                               }`}
                             >
-                              <option value="new" className="bg-zinc-900 text-white">جديد (New)</option>
-                              <option value="contacted" className="bg-zinc-900 text-white">تم التواصل (Contacted)</option>
-                              <option value="qualified" className="bg-zinc-900 text-white">مؤهل للشراء (Qualified)</option>
-                              <option value="converted" className="bg-zinc-900 text-white">تم الإغلاق بنجاح (Converted)</option>
+                              <option value="new" className="bg-zinc-900 text-white">New</option>
+                              <option value="contacted" className="bg-zinc-900 text-white">Contacted</option>
+                              <option value="qualified" className="bg-zinc-900 text-white">Qualified</option>
+                              <option value="converted" className="bg-zinc-900 text-white">Converted</option>
                             </select>
                           </td>
                           <td className="py-3.5 px-4 text-right">
                             {lead.visitorPhone ? (
                               <a
-                                href={`https://wa.me/${lead.visitorPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`مرحباً ${lead.visitorName}، تواصلنا معك بخصوص استفسارك على موقعنا: ${lead.message || ''}`)}`}
+                                href={`https://wa.me/${lead.visitorPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi ${lead.visitorName}, we got your inquiry about: ${lead.message || ''}`)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-lg text-[11px] font-bold border border-emerald-500/30 transition-all"
                               >
                                 <PhoneCall className="w-3 h-3" />
-                                <span>واتساب فوراً</span>
+                                <span>WhatsApp now</span>
                               </a>
                             ) : (
-                              <span className="text-zinc-600 text-[11px]">لا يوجد هاتف</span>
+                              <span className="text-zinc-600 text-[11px]">No phone</span>
                             )}
                           </td>
                         </tr>
@@ -513,14 +513,14 @@ export function ClientPortal({
               <div className="p-3.5 border-b border-zinc-800 bg-zinc-900/60 flex items-center justify-between">
                 <span className="text-xs font-bold text-white flex items-center gap-2">
                   <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>جميع جلسات المحادثة ({conversations.length})</span>
+                  <span>All conversation sessions ({conversations.length})</span>
                 </span>
               </div>
 
               <div className="divide-y divide-zinc-800/60 overflow-y-auto flex-1 max-h-[500px]">
                 {conversations.length === 0 ? (
                   <div className="p-8 text-center text-zinc-500 text-xs">
-                    لا توجد محادثات مسجلة بعد.
+                    No conversations recorded yet.
                   </div>
                 ) : (
                   conversations.map((conv) => (
@@ -535,7 +535,7 @@ export function ClientPortal({
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-xs text-white flex items-center gap-1.5">
-                          {conv.visitorName || 'زائر مجهول'}
+                          {conv.visitorName || 'Anonymous visitor'}
                           {conv.status === 'escalated_to_whatsapp' && (
                             <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 text-[9px] rounded font-mono">WhatsApp</span>
                           )}
@@ -545,11 +545,11 @@ export function ClientPortal({
                         </span>
                       </div>
                       <p className="text-[11px] text-zinc-400 line-clamp-1">
-                        {conv.messages[conv.messages.length - 1]?.text || 'بدء المحادثة...'}
+                        {conv.messages[conv.messages.length - 1]?.text || 'Conversation started...'}
                       </p>
                       <span className="text-[10px] text-zinc-500 flex items-center gap-1">
                         <MessageSquare className="w-2.5 h-2.5" />
-                        <span>{conv.messages.length} رسائل</span>
+                        <span>{conv.messages.length} messages</span>
                       </span>
                     </button>
                   ))
@@ -564,11 +564,11 @@ export function ClientPortal({
                   <div className="p-4 border-b border-zinc-800 bg-zinc-900/60 flex items-center justify-between">
                     <div>
                       <h3 className="font-bold text-sm text-white">
-                        {selectedConversation.visitorName || 'جلسة محادثة مع زائر'}
+                        {selectedConversation.visitorName || 'Conversation with a visitor'}
                       </h3>
                       <p className="text-xs text-zinc-400">
-                        {selectedConversation.visitorPhone ? `هاتف: ${selectedConversation.visitorPhone} • ` : ''}
-                        بدأت في: {new Date(selectedConversation.startedAt).toLocaleString()}
+                        {selectedConversation.visitorPhone ? `Phone: ${selectedConversation.visitorPhone} • ` : ''}
+                        Started: {new Date(selectedConversation.startedAt).toLocaleString()}
                       </p>
                     </div>
 
@@ -580,7 +580,7 @@ export function ClientPortal({
                         className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
                       >
                         <PhoneCall className="w-3.5 h-3.5" />
-                        <span>مراسلة الزائر</span>
+                        <span>Message visitor</span>
                       </a>
                     )}
                   </div>
@@ -592,7 +592,7 @@ export function ClientPortal({
                         className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
                       >
                         <span className="text-[10px] text-zinc-500 mb-1 px-1">
-                          {msg.sender === 'user' ? 'الزائر' : currentBot?.name || 'البوت'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {msg.sender === 'user' ? 'Visitor' : currentBot?.name || 'Bot'} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <div
                           className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed ${
@@ -610,7 +610,7 @@ export function ClientPortal({
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-zinc-500">
                   <MessageSquare className="w-10 h-10 opacity-30 mb-2" />
-                  <p className="text-xs">اختر محادثة من القائمة لعرض كامل تفاصيل الحوار.</p>
+                  <p className="text-xs">Select a conversation from the list to view the full transcript.</p>
                 </div>
               )}
             </div>
@@ -623,42 +623,42 @@ export function ClientPortal({
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800/80 shadow-md">
-                <span className="text-xs text-zinc-400 font-medium">إجمالي المحادثات المكتملة</span>
+                <span className="text-xs text-zinc-400 font-medium">Total completed conversations</span>
                 <p className="text-2xl font-bold text-white mt-1">
                   {currentBot?.stats?.totalConversations || conversations.length || 142}
                 </p>
                 <span className="text-[11px] text-emerald-400 mt-2 block font-medium">
-                  ↑ +28% نمو هذا الأسبوع
+                  ↑ +28% growth this week
                 </span>
               </div>
 
               <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800/80 shadow-md">
-                <span className="text-xs text-zinc-400 font-medium">إجمالي الرسائل المجابة</span>
+                <span className="text-xs text-zinc-400 font-medium">Total messages answered</span>
                 <p className="text-2xl font-bold text-white mt-1">
                   {currentBot?.stats?.totalMessages || (conversations.length * 4) || 1280}
                 </p>
                 <span className="text-[11px] text-indigo-400 mt-2 block font-medium">
-                  24/7 رد فوري بدون تأخير
+                  24/7 instant replies, zero waiting
                 </span>
               </div>
 
               <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800/80 shadow-md">
-                <span className="text-xs text-zinc-400 font-medium">نسبة حل الاستفسارات تلقائياً</span>
+                <span className="text-xs text-zinc-400 font-medium">Auto-resolved inquiries</span>
                 <p className="text-2xl font-bold text-emerald-400 mt-1">
                   {currentBot?.stats?.satisfactionRate || 98}%
                 </p>
                 <span className="text-[11px] text-zinc-500 mt-2 block">
-                  دقة معتمدة على بيانات موقعك
+                  Accuracy based on your website data
                 </span>
               </div>
 
               <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800/80 shadow-md">
-                <span className="text-xs text-zinc-400 font-medium">العملاء المحولون لواتساب</span>
+                <span className="text-xs text-zinc-400 font-medium">Clients handed to WhatsApp</span>
                 <p className="text-2xl font-bold text-amber-400 mt-1">
                   {leads.length || 18}
                 </p>
                 <span className="text-[11px] text-amber-400/80 mt-2 block font-medium">
-                  جاهزون للإغلاق والشراء
+                  Ready to close & buy
                 </span>
               </div>
             </div>
@@ -667,14 +667,14 @@ export function ClientPortal({
             <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-6">
               <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-indigo-400" />
-                <span>أكثر المواضيع والأسئلة التي طرحها زوار موقعك</span>
+                <span>Top topics & questions asked by your visitors</span>
               </h3>
               <div className="space-y-3">
                 {[
-                  { topic: 'الأسعار وطرق الدفع والخصومات', percent: '42%', count: '64 زائر' },
-                  { topic: 'سياسة الشحن، التوصيل والاسترجاع', percent: '28%', count: '39 زائر' },
-                  { topic: 'طلب التحدث المباشر مع فريق الدعم عبر واتساب', percent: '18%', count: '27 زائر' },
-                  { topic: 'مواصفات المنتجات والتفصيل الخاص', percent: '12%', count: '18 زائر' },
+                  { topic: 'Pricing, payment methods & discounts', percent: '42%', count: '64 visitors' },
+                  { topic: 'Shipping, delivery & returns policy', percent: '28%', count: '39 visitors' },
+                  { topic: 'Speaking to human support on WhatsApp', percent: '18%', count: '27 visitors' },
+                  { topic: 'Product details & custom specifications', percent: '12%', count: '18 visitors' },
                 ].map((item, idx) => (
                   <div key={idx} className="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800/50 flex items-center justify-between">
                     <div className="space-y-1">
@@ -702,16 +702,16 @@ export function ClientPortal({
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Code2 className="w-4 h-4 text-indigo-400" />
-                    <span>كود الـ iFrame المباشر (Direct iFrame Embed)</span>
+                    <span>Direct iFrame Embed</span>
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-1">انسخ هذا الكود وضعه في أي صفحة داخل متجرك أو موقعك:</p>
+                  <p className="text-xs text-zinc-400 mt-1">Copy this code and place it on any page of your store or website:</p>
                 </div>
                 <button
                   onClick={() => copyToClipboard(iframeCode, 'iframe')}
                   className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
                 >
                   {copiedKey === 'iframe' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedKey === 'iframe' ? 'تم النسخ!' : 'نسخ كود iFrame'}</span>
+                  <span>{copiedKey === 'iframe' ? 'Copied!' : 'Copy iFrame code'}</span>
                 </button>
               </div>
               <div className="bg-black border border-zinc-800 rounded-xl p-4 font-mono text-[11px] text-emerald-300 select-all overflow-x-auto">
@@ -724,16 +724,16 @@ export function ClientPortal({
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-indigo-400" />
-                    <span>كود الزر العائم في زاوية الموقع (Floating Widget Script)</span>
+                    <span>Floating Widget Script</span>
                   </h3>
-                  <p className="text-xs text-zinc-400 mt-1">ضعه قبل إغلاق وسم <code>&lt;/body&gt;</code> ليظهر زر الشات في زاوية كل صفحات موقعك:</p>
+                  <p className="text-xs text-zinc-400 mt-1">Place it right before the closing <code>&lt;/body&gt;</code> tag so the chat button appears on every page:</p>
                 </div>
                 <button
                   onClick={() => copyToClipboard(scriptTagCode, 'script')}
                   className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm"
                 >
                   {copiedKey === 'script' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedKey === 'script' ? 'تم النسخ!' : 'نسخ السكربت'}</span>
+                  <span>{copiedKey === 'script' ? 'Copied!' : 'Copy script'}</span>
                 </button>
               </div>
               <div className="bg-black border border-zinc-800 rounded-xl p-4 font-mono text-[11px] text-indigo-300 select-all overflow-x-auto">
@@ -758,21 +758,21 @@ export function ClientPortal({
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <PhoneCall className="w-4 h-4 text-emerald-400" />
-                  <span>إعدادات الدعم المباشر وتحويل الواتساب (WhatsApp Escalation)</span>
+                  <span>Live Support & WhatsApp Escalation Settings</span>
                 </h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  الرقم الذي سيتم توجيه العملاء الجادين إليه عندما يطلبون التواصل الهاتفي أو الشراء المباشر.
+                  The number serious buyers are routed to when they ask to talk on the phone or buy directly.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
                   <label className="block text-zinc-300 font-semibold mb-1.5">
-                    رقم الواتساب الرسمي (مع رمز الدولة الدولي):
+                    Official WhatsApp number (with international country code):
                   </label>
                   <input
                     type="text"
-                    placeholder="+966501234567 أو +212612345678"
+                    placeholder="+966501234567 or +212612345678"
                     value={whatsappNumber}
                     onChange={(e) => setWhatsappNumber(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 font-mono"
@@ -781,11 +781,11 @@ export function ClientPortal({
 
                 <div>
                   <label className="block text-zinc-300 font-semibold mb-1.5">
-                    الرسالة المبدئية عند نقر الزائر على زر الواتساب:
+                    Pre-filled message when a visitor clicks the WhatsApp button:
                   </label>
                   <input
                     type="text"
-                    placeholder="مرحباً، أود التحدث مع فريق المبيعات بخصوص طلبي..."
+                    placeholder="Hello! I would like to speak with the sales team about my order..."
                     value={whatsappMessage}
                     onChange={(e) => setWhatsappMessage(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
@@ -799,21 +799,21 @@ export function ClientPortal({
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Bot className="w-4 h-4 text-indigo-400" />
-                  <span>تخصيص هوية الشات ورسائل الترحيب للزوار</span>
+                  <span>Chat Identity & Visitor Welcome Messages</span>
                 </h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  عدّل العناوين ورسالة البداية التي تظهر لزوار موقعك عند فتح نافذة المساعد الذكي.
+                  Edit the titles and opening message your visitors see when the assistant window opens.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
                   <label className="block text-zinc-300 font-semibold mb-1.5">
-                    عنوان نافذة الشات (Header Title):
+                    Chat window title (Header Title):
                   </label>
                   <input
                     type="text"
-                    placeholder="مساعد المبيعات الذكي"
+                    placeholder="Smart Sales Assistant"
                     value={headerTitle}
                     onChange={(e) => setHeaderTitle(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
@@ -822,11 +822,11 @@ export function ClientPortal({
 
                 <div>
                   <label className="block text-zinc-300 font-semibold mb-1.5">
-                    الوصف الفرعي (Subtitle):
+                    Subtitle:
                   </label>
                   <input
                     type="text"
-                    placeholder="متاح 24/7 للإجابة الفورية"
+                    placeholder="Available 24/7 for instant replies"
                     value={headerSubtitle}
                     onChange={(e) => setHeaderSubtitle(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
@@ -836,7 +836,7 @@ export function ClientPortal({
 
               <div className="text-xs">
                 <label className="block text-zinc-300 font-semibold mb-1.5">
-                  رسالة الترحيب الأولى للزائر (Welcome Message):
+                  First welcome message for visitors (Welcome Message):
                 </label>
                 <textarea
                   rows={2}
@@ -852,10 +852,10 @@ export function ClientPortal({
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span>معلومات وقاعدة بيانات متجرك / شركتك (Knowledge Base)</span>
+                  <span>Your Store / Company Knowledge Base</span>
                 </h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                  اكتب هنا معلومات منتجاتك، الأسعار، سياسات الشحن، أو العروض الجديدة ليتعلمها البوت فوراً ويجيب بدقة.
+                  Enter your product info, pricing, shipping policies, and offers here so the bot learns them instantly and answers accurately.
                 </p>
               </div>
 
@@ -863,7 +863,7 @@ export function ClientPortal({
                 rows={6}
                 value={knowledgeBase}
                 onChange={(e) => setKnowledgeBase(e.target.value)}
-                placeholder="أدخل معلومات نشاطك التجاري، أوقات العمل، طرق الدفع، سياسة الاستبدال والاسترجاع..."
+                placeholder="Enter your business info, working hours, payment methods, return policy..."
                 className="w-full px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 font-mono text-xs leading-relaxed"
               />
             </div>
@@ -874,27 +874,27 @@ export function ClientPortal({
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <HelpCircle className="w-4 h-4 text-cyan-400" />
-                    <span>الأسئلة الشائعة والأجوبة النموذجية (FAQs)</span>
+                    <span>Frequently Asked Questions (FAQs)</span>
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">
-                    أضف الأسئلة الأكثر تكراراً وأجوبتها الدقيقة ليجيب بها البوت فوراً.
+                    Add your most common questions with accurate answers so the bot can reply instantly.
                   </p>
                 </div>
               </div>
 
               {/* Add FAQ Sub-form */}
               <div className="p-4 bg-zinc-900/60 border border-zinc-800 rounded-xl space-y-2.5 text-xs">
-                <span className="font-bold text-zinc-300">إضافة سؤال وجواب جديد:</span>
+                <span className="font-bold text-zinc-300">Add a new Q&A:</span>
                 <input
                   type="text"
-                  placeholder="السؤال: مثلاً (كم يستغرق توصيل الطلبات في الرياض؟)"
+                  placeholder="Question: e.g. How long does delivery take in Riyadh?"
                   value={newQuestion}
                   onChange={(e) => setNewQuestion(e.target.value)}
                   className="w-full px-3 py-2 bg-black border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500"
                 />
                 <textarea
                   rows={2}
-                  placeholder="الجواب النموذجي: التوصيل يستغرق من 24 إلى 48 ساعة عبر شركة أرامكس مجاناً للطلبات فوق 200 ريال."
+                  placeholder="Model answer: Delivery takes 24 to 48 hours via Aramex — free for orders over 200 SAR."
                   value={newAnswer}
                   onChange={(e) => setNewAnswer(e.target.value)}
                   className="w-full px-3 py-2 bg-black border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-indigo-500 leading-relaxed"
@@ -904,7 +904,7 @@ export function ClientPortal({
                   onClick={handleAddFaq}
                   className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
                 >
-                  + إضافة هذا السؤال لقاعدة بيانات البوت
+                  + Add this question to the bot's database
                 </button>
               </div>
 
@@ -913,15 +913,15 @@ export function ClientPortal({
                 {faqsList.map((faq) => (
                   <div key={faq.id} className="p-3 bg-zinc-900/40 rounded-xl border border-zinc-800 flex items-start justify-between gap-3 text-xs">
                     <div className="space-y-1">
-                      <p className="font-bold text-white">س: {faq.question}</p>
-                      <p className="text-zinc-400 text-[11px] leading-relaxed">ج: {faq.answer}</p>
+                      <p className="font-bold text-white">Q: {faq.question}</p>
+                      <p className="text-zinc-400 text-[11px] leading-relaxed">A: {faq.answer}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleDeleteFaq(faq.id)}
                       className="text-zinc-500 hover:text-rose-400 p-1 rounded-lg transition-colors shrink-0"
                     >
-                      حذف
+                      Delete
                     </button>
                   </div>
                 ))}
@@ -935,7 +935,7 @@ export function ClientPortal({
                 onClick={handleSaveSettings}
                 className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-bold transition-all shadow-lg shadow-emerald-600/20"
               >
-                حفظ كافة التعديلات والتحديثات للبوت فوراً
+                Save All Changes to the Bot Now
               </button>
             </div>
           </div>

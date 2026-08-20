@@ -1,36 +1,116 @@
-import express from "express";
+﻿import express from "express";
 import path from "path";
+import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import { db } from "./server/db";
+import type { ClientUser } from "./server/db";
+import {
+  verifyPassword,
+  createSession,
+  getSessionUserId,
+  destroySession,
+  readSessionToken,
+  setSessionCookie,
+  clearSessionCookie,
+  rateLimiter,
+  isUnsafeUrl,
+  normalizeUrl,
+  securityHeaders,
+} from "./server/security";
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
+const IS_PROD = process.env.NODE_ENV === "production";
 
-app.use(express.json({ limit: "10mb" }));
+app.disable("x-powered-by");
+app.use(securityHeaders);
+app.use(express.json({ limit: "1mb" }));
+app.use(attachUser);
 
-// Server-side Gemini initialization
-let aiClient: GoogleGenAI | null = null;
-function getAI(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
+// Server-side Gemini client factory.
+// Each request may use its own key: the bot's dedicated key (if the admin set one)
+// or the platform's master GEMINI_API_KEY. Keys never leave the server.
+function getAI(keyOverride?: string): GoogleGenAI | null {
+  const apiKey = keyOverride || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn("GEMINI_API_KEY is not set in environment.");
     return null;
   }
-  if (!aiClient) {
-    aiClient = new GoogleGenAI({
-      apiKey,
-      httpOptions: {
-        headers: {
-          "User-Agent": "aistudio-build",
-        },
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        "User-Agent": "aistudio-build",
       },
-    });
+    },
+  });
+}
+
+// ==========================================
+// AUTH / SESSION MIDDLEWARE & GUARDS
+// ==========================================
+declare global {
+  namespace Express {
+    interface Request {
+      user?: ClientUser;
+      sessionId?: string;
+    }
   }
-  return aiClient;
+}
+
+type RoleName = "admin" | "client" | "viewer";
+
+/** Resolve the current session user (if any) for every request. */
+function attachUser(req: express.Request, _res: express.Response, next: express.NextFunction) {
+  const token = readSessionToken(req);
+  req.sessionId = token || undefined;
+  const userId = token ? getSessionUserId(token) : null;
+  req.user = userId ? db.getUserById(userId) : undefined;
+  next();
+}
+
+function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Authentication required. Please sign in." });
+  }
+  next();
+}
+
+function requireRole(...roles: RoleName[]) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: "Authentication required. Please sign in." });
+    if (!roles.includes(req.user.role as RoleName)) {
+      return res.status(403).json({ error: "You do not have permission to perform this action." });
+    }
+    next();
+  };
+}
+
+function canAccessBot(user: ClientUser | undefined, botId: string | undefined | null): boolean {
+  if (!botId) return false;
+  if (!user) return false;
+  if (user.role === "admin" || user.assignedBotIds?.includes("all")) return true;
+  return !!user.assignedBotIds?.includes(botId);
+}
+
+/** Keeps client/viewer accounts confined to their assigned bots. */
+function requireBotAccess(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!req.user) return res.status(401).json({ error: "Authentication required. Please sign in." });
+  const botId = (req.params.id as string) || (req.query?.botId as string);
+  if (!canAccessBot(req.user, botId)) {
+    return res.status(403).json({ error: "You do not have access to this bot." });
+  }
+  next();
+}
+
+/** Strip every secret field before serializing user accounts. */
+function sanitizeUser(user: ClientUser) {
+  const { passwordHash: _removed, ...safe } = user;
+  return safe;
 }
 
 // Health check
@@ -41,74 +121,53 @@ app.get("/api/health", (_req, res) => {
 // ==========================================
 // 1. AUTH & CLIENT PORTAL LOGIN
 // ==========================================
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", rateLimiter({ windowMs: 60_000, max: 10 }), (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = String(email).toLowerCase().trim();
     const user = db.findUserByEmail(cleanEmail);
 
-    if (!user) {
-      // If logging in with admin/founder email or default agency email
-      if (cleanEmail === "jaafarirayan98@gmail.com" || cleanEmail === "admin@agency.com") {
-        const adminUser = {
-          id: "user-admin",
-          email: cleanEmail,
-          name: "Rayan Jaafari (Agency Owner)",
-          companyName: "BotCraft AI Agency",
-          plan: "enterprise" as const,
-          role: "admin" as const,
-          assignedBotIds: ["all"],
-          avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-          createdAt: new Date().toISOString(),
-        };
-        return res.json({ success: true, user: adminUser });
-      }
+    if (!user || !verifyPassword(String(password), user.passwordHash)) {
       return res.status(401).json({ error: "Invalid email or password. Please check your credentials." });
-    }
-
-    if (user.passwordHash && user.passwordHash !== password) {
-      return res.status(401).json({ error: "Invalid password for this account." });
     }
 
     user.lastLogin = new Date().toISOString();
     db.save();
 
-    const responseUser = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      companyName: user.companyName,
-      plan: "enterprise" as const,
-      role: user.role,
-      assignedBotIds: user.assignedBotIds,
-      avatar: user.role === 'admin' 
-        ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80" 
-        : "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80",
-      createdAt: user.createdAt,
-    };
+    const token = createSession(user.id);
+    setSessionCookie(res, token, IS_PROD);
 
-    return res.json({ success: true, user: responseUser });
+    return res.json({ success: true, user: sanitizeUser(user) });
   } catch (error: any) {
     console.error("Login error:", error);
     return res.status(500).json({ error: "Login failed" });
   }
 });
 
+app.get("/api/auth/me", (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  return res.json({ success: true, user: sanitizeUser(req.user) });
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  destroySession(req.sessionId);
+  clearSessionCookie(res);
+  return res.json({ success: true });
+});
+
 // ==========================================
 // 2. BOTS DATABASE API (PERSISTENT)
 // ==========================================
-app.get("/api/bots", (req, res) => {
+app.get("/api/bots", requireAuth, (req, res) => {
   try {
-    const role = (req.query.role as string) || 'admin';
-    const assigned = req.query.assignedBotIds 
-      ? (req.query.assignedBotIds as string).split(',') 
-      : undefined;
-
-    const bots = db.getBots({ role, assignedBotIds: assigned });
+    // Scope is always derived from the authenticated session — never trust query params.
+    const bots = db.getBots(req.user);
     return res.json({ success: true, bots });
   } catch (error: any) {
     console.error("Fetch bots error:", error);
@@ -116,7 +175,7 @@ app.get("/api/bots", (req, res) => {
   }
 });
 
-app.get("/api/bots/:id", (req, res) => {
+app.get("/api/bots/:id", requireAuth, requireBotAccess, (req, res) => {
   try {
     const bot = db.getBotById(req.params.id);
     if (!bot) {
@@ -128,14 +187,14 @@ app.get("/api/bots/:id", (req, res) => {
   }
 });
 
-app.get("/api/bots/:id/client-access", (req, res) => {
+app.get("/api/bots/:id/client-access", requireAuth, requireRole("admin"), (req, res) => {
   try {
     const bot = db.getBotById(req.params.id);
     if (!bot) {
       return res.status(404).json({ error: "Bot not found" });
     }
 
-    // Find or create the dedicated client user account for this bot
+    // Find the dedicated client user account for this bot
     let clientUser = db.getClientUsers().find((u) => u.assignedBotIds?.includes(bot.id));
     if (!clientUser) {
       const cleanCompanyName = (bot.clientName || bot.name || 'Client Business').trim();
@@ -156,9 +215,11 @@ app.get("/api/bots/:id/client-access", (req, res) => {
       success: true,
       credentials: {
         email: clientUser.email,
-        password: clientUser.passwordHash,
+        // Displayed once to the admin after creation; the stored copy is always hashed.
+        password: clientUser.passwordHash.startsWith("$s0$") ? "(hashed — reset via client account manager)" : clientUser.passwordHash,
         name: clientUser.name,
         companyName: clientUser.companyName,
+        role: clientUser.role,
         portalUrl: `/?portal=true`,
         directDemoUrl: `/?demo=${bot.id}`,
       },
@@ -169,12 +230,24 @@ app.get("/api/bots/:id/client-access", (req, res) => {
   }
 });
 
-app.post("/api/bots", (req, res) => {
+app.post("/api/bots", requireAuth, (req, res) => {
   try {
     const botData = req.body;
     if (!botData || !botData.id || !botData.name) {
       return res.status(400).json({ error: "Bot id and name are required" });
     }
+
+    const existing = db.getBotById(botData.id);
+    if (!existing && req.user?.role !== "admin") {
+      return res.status(403).json({ error: "Only admins can create new bots." });
+    }
+    if (existing && req.user?.role === "viewer") {
+      return res.status(403).json({ error: "Viewer accounts are read-only." });
+    }
+    if (existing && req.user?.role === "client" && !canAccessBot(req.user, botData.id)) {
+      return res.status(403).json({ error: "You do not have access to this bot." });
+    }
+
     const saved = db.upsertBot(botData);
     return res.json({ success: true, bot: saved });
   } catch (error: any) {
@@ -182,7 +255,7 @@ app.post("/api/bots", (req, res) => {
   }
 });
 
-app.delete("/api/bots/:id", (req, res) => {
+app.delete("/api/bots/:id", requireAuth, requireRole("admin"), (req, res) => {
   try {
     const ok = db.deleteBot(req.params.id);
     return res.json({ success: ok });
@@ -191,43 +264,107 @@ app.delete("/api/bots/:id", (req, res) => {
   }
 });
 
+// Public read-only bot profile (used by the embed widget on any website).
+// Exposes only the fields a chatbot needs to run — never secrets.
+app.get("/api/bots/:id/public", rateLimiter({ windowMs: 60_000, max: 240 }), (req, res) => {
+  try {
+    const bot = db.getBotById(req.params.id);
+    if (!bot) {
+      return res.status(404).json({ error: "Bot not found" });
+    }
+    if (bot.isActive === false) {
+      return res.status(404).json({ error: "Bot is not published." });
+    }
+    const safe = {
+      id: bot.id,
+      name: bot.name,
+      clientName: bot.clientName,
+      clientDomain: bot.clientDomain,
+      description: bot.description,
+      avatar: bot.avatar,
+      role: bot.role,
+      tone: bot.tone,
+      websiteUrl: bot.websiteUrl,
+      language: bot.language,
+      systemPrompt: bot.systemPrompt,
+      knowledgeBase: bot.knowledgeBase,
+      rules: bot.rules || [],
+      faqs: bot.faqs || [],
+      whatsappNumber: bot.whatsappNumber,
+      whatsappMessage: bot.whatsappMessage,
+      enableWhatsAppHandover: bot.enableWhatsAppHandover,
+      widgetConfig: bot.widgetConfig,
+      isActive: true, // already guaranteed by the `isActive === false` guard above
+      updatedAt: bot.updatedAt,
+    };
+    return res.json({ success: true, bot: safe });
+  } catch (error: any) {
+    return res.status(500).json({ error: "Failed to fetch bot" });
+  }
+});
+
+// Per-bot Gemini API key management (admin only).
+// The actual key is stored server-side and NEVER returned in any response.
+app.get("/api/bots/:id/apikey", requireAuth, requireRole("admin"), (req, res) => {
+  try {
+    const bot = db.getBotById(req.params.id);
+    if (!bot) return res.status(404).json({ error: "Bot not found" });
+    return res.json({ success: true, hasKey: db.hasBotApiKey(bot.id) });
+  } catch (error: any) {
+    return res.status(500).json({ error: "Failed to read key status" });
+  }
+});
+
+app.post("/api/bots/:id/apikey", requireAuth, requireRole("admin"), (req, res) => {
+  try {
+    const bot = db.getBotById(req.params.id);
+    if (!bot) return res.status(404).json({ error: "Bot not found" });
+    const text = String(req.body?.text ?? "").trim();
+    db.setBotApiKey(bot.id, text || null);
+    return res.json({ success: true, hasKey: db.hasBotApiKey(bot.id) });
+  } catch (error: any) {
+    return res.status(500).json({ error: "Failed to save the key" });
+  }
+});
+
 // ==========================================
 // 3. CLIENT USER ACCOUNTS MANAGEMENT (ADMIN)
 // ==========================================
-app.get("/api/client-users", (_req, res) => {
+app.get("/api/client-users", requireAuth, requireRole("admin"), (_req, res) => {
   try {
-    const users = db.getClientUsers();
+    const users = db.getClientUsers().map(sanitizeUser);
     return res.json({ success: true, users });
   } catch (error: any) {
     return res.status(500).json({ error: "Failed to fetch client users" });
   }
 });
 
-app.post("/api/client-users", (req, res) => {
+app.post("/api/client-users", requireAuth, requireRole("admin"), (req, res) => {
   try {
-    const { email, password, name, companyName, assignedBotIds, role } = req.body;
+    const { email, password, name, companyName, assignedBotIds, role } = req.body || {};
     if (!email || !password || !name) {
       return res.status(400).json({ error: "Email, password, and name are required" });
     }
+    const cleanRole: RoleName = role === "admin" || role === "client" || role === "viewer" ? role : "client";
 
     const newUser = db.upsertClientUser({
-      id: `user-client-${Date.now()}`,
+      id: req.body.id || `user-client-${Date.now()}`,
       email: email.toLowerCase().trim(),
-      passwordHash: password,
+      passwordHash: String(password),
       name,
       companyName: companyName || name,
       assignedBotIds: Array.isArray(assignedBotIds) && assignedBotIds.length > 0 ? assignedBotIds : ['all'],
-      role: role || 'client',
+      role: cleanRole,
       createdAt: new Date().toISOString(),
     });
 
-    return res.json({ success: true, user: newUser });
+    return res.json({ success: true, user: sanitizeUser(newUser), generatedPassword: password });
   } catch (error: any) {
     return res.status(500).json({ error: "Failed to create client user" });
   }
 });
 
-app.delete("/api/client-users/:id", (req, res) => {
+app.delete("/api/client-users/:id", requireAuth, requireRole("admin"), (req, res) => {
   try {
     const ok = db.deleteClientUser(req.params.id);
     return res.json({ success: ok });
@@ -239,9 +376,12 @@ app.delete("/api/client-users/:id", (req, res) => {
 // ==========================================
 // 4. REAL CONVERSATION TRANSCRIPTS & LOGS
 // ==========================================
-app.get("/api/conversations", (req, res) => {
+app.get("/api/conversations", requireAuth, (req, res) => {
   try {
     const botId = req.query.botId as string;
+    if (botId && botId !== "all" && !canAccessBot(req.user, botId)) {
+      return res.status(403).json({ error: "You do not have access to this bot's conversations." });
+    }
     const conversations = db.getConversations(botId);
     return res.json({ success: true, conversations });
   } catch (error: any) {
@@ -249,7 +389,8 @@ app.get("/api/conversations", (req, res) => {
   }
 });
 
-app.post("/api/conversations/log", (req, res) => {
+// Public capture endpoint used by embedded widgets (rate-limited).
+app.post("/api/conversations/log", rateLimiter({ windowMs: 60_000, max: 90 }), (req, res) => {
   try {
     const {
       conversationId,
@@ -261,14 +402,18 @@ app.post("/api/conversations/log", (req, res) => {
       visitorPhone,
       visitorEmail,
       message,
+      messages,
       status,
-    } = req.body;
+    } = req.body || {};
 
-    if (!botId || !message || !message.text) {
+    // Accept either a single message object or an array (last message wins).
+    const single = message && message.text ? message : Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1] : null;
+
+    if (!botId || !single || !single.text) {
       return res.status(400).json({ error: "botId and message are required" });
     }
 
-    const conv = db.logConversationMessage({
+    db.logConversationMessage({
       conversationId,
       botId,
       botName,
@@ -277,11 +422,11 @@ app.post("/api/conversations/log", (req, res) => {
       visitorName,
       visitorPhone,
       visitorEmail,
-      message,
+      message: single,
       status,
     });
 
-    return res.json({ success: true, conversation: conv });
+    return res.json({ success: true });
   } catch (error: any) {
     console.error("Conversation log error:", error);
     return res.status(500).json({ error: "Failed to log conversation" });
@@ -291,9 +436,12 @@ app.post("/api/conversations/log", (req, res) => {
 // ==========================================
 // 5. CAPTURED LEADS (VISITOR CRM)
 // ==========================================
-app.get("/api/leads", (req, res) => {
+app.get("/api/leads", requireAuth, (req, res) => {
   try {
     const botId = req.query.botId as string;
+    if (botId && botId !== "all" && !canAccessBot(req.user, botId)) {
+      return res.status(403).json({ error: "You do not have access to this bot's leads." });
+    }
     const leads = db.getLeads(botId);
     return res.json({ success: true, leads });
   } catch (error: any) {
@@ -301,10 +449,30 @@ app.get("/api/leads", (req, res) => {
   }
 });
 
-app.post("/api/leads", (req, res) => {
+// Public capture endpoint used by embedded widgets (rate-limited).
+// Accepts both canonical fields and the widget's aliases (name/phone/note) for safety.
+app.post("/api/leads", rateLimiter({ windowMs: 60_000, max: 60 }), (req, res) => {
   try {
-    const { botId, botName, clientName, visitorName, visitorEmail, visitorPhone, message, sourceUrl } = req.body;
-    if (!botId || (!visitorEmail && !visitorPhone && !visitorName)) {
+    const {
+      botId,
+      botName,
+      clientName,
+      visitorName,
+      visitorEmail,
+      visitorPhone,
+      message,
+      sourceUrl,
+      name,
+      phone,
+      note,
+    } = req.body || {};
+
+    const safeVisitorName = visitorName || name || '';
+    const safeVisitorEmail = visitorEmail || '';
+    const safeVisitorPhone = visitorPhone || phone || '';
+    const safeMessage = message || note || '';
+
+    if (!botId || (!safeVisitorName && !safeVisitorEmail && !safeVisitorPhone)) {
       return res.status(400).json({ error: "botId and contact info are required" });
     }
 
@@ -312,10 +480,10 @@ app.post("/api/leads", (req, res) => {
       botId,
       botName: botName || "AI Assistant",
       clientName: clientName || "Client Business",
-      visitorName: visitorName || "Anonymous Visitor",
-      visitorEmail: visitorEmail || "",
-      visitorPhone: visitorPhone || "",
-      message: message || "",
+      visitorName: safeVisitorName || "Anonymous Visitor",
+      visitorEmail: safeVisitorEmail,
+      visitorPhone: safeVisitorPhone,
+      message: safeMessage,
       sourceUrl: sourceUrl || "",
     });
 
@@ -325,21 +493,26 @@ app.post("/api/leads", (req, res) => {
   }
 });
 
-app.patch("/api/leads/:id", (req, res) => {
+app.patch("/api/leads/:id", requireAuth, (req, res) => {
   try {
-    const { status } = req.body;
-    const lead = db.updateLeadStatus(req.params.id, status);
+    const lead = db.getLeads().find((l) => l.id === req.params.id);
     if (!lead) return res.status(404).json({ error: "Lead not found" });
-    return res.json({ success: true, lead });
+    if (!canAccessBot(req.user, lead.botId)) {
+      return res.status(403).json({ error: "You do not have access to this lead." });
+    }
+    const { status } = req.body || {};
+    const updated = db.updateLeadStatus(req.params.id, status);
+    return res.json({ success: true, lead: updated });
   } catch (error: any) {
     return res.status(500).json({ error: "Failed to update lead" });
   }
 });
 
-// Chat API endpoint
-app.post("/api/chat", async (req, res) => {
+// Chat API endpoint (public widget endpoint, rate-limited)
+app.post("/api/chat", rateLimiter({ windowMs: 60_000, max: 25 }), async (req, res) => {
   try {
     const {
+      botId,
       botName,
       systemPrompt,
       tone,
@@ -350,17 +523,24 @@ app.post("/api/chat", async (req, res) => {
       message,
       whatsappNumber,
       whatsappMessage,
-    } = req.body;
+    } = req.body || {};
 
-    if (!message) {
+    const text = String(message || "").trim();
+    if (!text) {
       return res.status(400).json({ error: "Message is required" });
     }
+    if (text.length > 4000) {
+      return res.status(400).json({ error: "Message is too long." });
+    }
 
-    const ai = getAI();
+    // Use the bot's own dedicated key when the admin set one; otherwise fall back
+    // to the platform master key. The key never leaves the server.
+    const botKey = botId ? db.getBotApiKey(String(botId)) : null;
+    const ai = getAI(botKey || undefined);
     if (!ai) {
       // Graceful fallback response if no API key is set
       const waNotice = whatsappNumber 
-        ? `\n\n💬 يمكنك أيضاً التحدث مباشرة مع فريق الدعم البشري عبر واتساب: https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`
+        ? `\n\n💬 You can also reach our human support team directly on WhatsApp: https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`
         : '';
       return res.json({
         response: `Hello! I am ${botName || "your AI Assistant"}. I am here to help answer your questions, guide you through our products and services, and assist with any inquiries.${waNotice}`,
@@ -381,7 +561,7 @@ app.post("/api/chat", async (req, res) => {
     // WhatsApp Human Support Handover Rule
     if (whatsappNumber && whatsappNumber.trim()) {
       const cleanPhone = whatsappNumber.trim().replace(/[^0-9+]/g, '').replace(/^\+/, '');
-      const defaultMsg = encodeURIComponent(whatsappMessage || `مرحباً، أود التحدث مع فريق الدعم بخصوص استفساري على الموقع`);
+      const defaultMsg = encodeURIComponent(whatsappMessage || `Hello! I would like to speak with your support team regarding my inquiry on your website.`);
       const waLink = `https://wa.me/${cleanPhone}?text=${defaultMsg}`;
       
       contextPrompt += `=== HUMAN SUPPORT & WHATSAPP HANDOVER INSTRUCTIONS ===\n`;
@@ -389,7 +569,7 @@ app.post("/api/chat", async (req, res) => {
       contextPrompt += `Official WhatsApp Number: +${cleanPhone}\n`;
       contextPrompt += `Direct WhatsApp Link: ${waLink}\n`;
       contextPrompt += `RULE: If the visitor explicitly asks to speak with a human, calls for management/support agent, expresses anger/frustration, or asks for complex custom quotes not in the knowledge base, warmly answer their inquiry as best you can and DIRECT them to speak with human support on WhatsApp using this format:\n`;
-      contextPrompt += `"إذا كنت تفضل التحدث مباشرة مع فريق الدعم البشري أو صاحب المشروع، يمكنك مراسلتنا فوراً عبر الواتساب:\n[💬 تحدث مع الدعم المباشر على واتساب](${waLink})"\n=====================================================\n\n`;
+      contextPrompt += `"If you would prefer to speak directly with our human support team or the project owner, you can reach us right away on WhatsApp:\n[💬 Chat with live support on WhatsApp](${waLink})"\n=====================================================\n\n`;
     }
 
     if (rules && Array.isArray(rules) && rules.length > 0) {
@@ -474,21 +654,21 @@ function sanitizeHtmlToText(html: string): string {
 }
 
 // Deep Multi-Page AI Website Crawler & Knowledge Extractor
-app.post("/api/ai/analyze-website", async (req, res) => {
+app.post("/api/ai/analyze-website", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     const rawUrl = (req.body.url || "").trim();
-    if (!rawUrl) {
+    const cleanUrl = normalizeUrl(rawUrl);
+    const safety = await isUnsafeUrl(rawUrl);
+    if (!safety.ok) {
+      return res.status(400).json({ error: `URL blocked: ${safety.reason}` });
+    }
+    if (!cleanUrl) {
       return res.status(400).json({ error: "Website URL is required" });
     }
 
     const { botRole } = req.body;
     
-    // Normalize URL
-    const cleanUrl = rawUrl.startsWith("http://") || rawUrl.startsWith("https://") 
-      ? rawUrl 
-      : `https://${rawUrl}`;
-
-    // Extract domain and brand name
+    // Extract domain and brand name (cleanUrl was already normalized above)
     let domainName = "brand";
     let originUrl = cleanUrl;
     try {
@@ -501,111 +681,77 @@ app.post("/api/ai/analyze-website", async (req, res) => {
     const brandPart = domainName.split('.')[0] || "Business";
     const capitalizedBrand = brandPart.charAt(0).toUpperCase() + brandPart.slice(1);
 
-    let extractedPages: { url: string; title: string; text: string }[] = [];
+        let extractedPages: { url: string; title: string; text: string }[] = [];
     let detectedWhatsApp: string | null = null;
-    let mainHtml = "";
 
-    // 1. Fetch Main Landing Page
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      
-      const fetchRes = await fetch(cleanUrl, {
-        signal: controller.signal,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9,ar;q=0.8"
-        }
-      });
-      clearTimeout(timeoutId);
+    // Breadth-first deep crawl: index every same-origin page we can reach
+    // (small and large sites), then merge all content into one rich corpus.
+    const maxPages = Math.max(1, Math.min(Number(req.body?.maxPages) || 90, 300));
+    const seen = new Set<string>();
+    const queue: string[] = [cleanUrl];
+    const canonicalKey = (url: string) => {
+      try { const p = new URL(url); return (p.origin + p.pathname).toLowerCase().replace(/\/+$/, ""); } catch { return url; }
+    };
+    const looksLikeAsset = (href: string) => /\.(png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|mp4|mp3|mov|zip|rar|pdf|docx?|xlsx?|pptx?|css|js)$/i.test(href);
 
-      if (fetchRes.ok) {
-        mainHtml = await fetchRes.text();
-        const mainTitle = mainHtml.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || `${capitalizedBrand} Home`;
-        const mainText = sanitizeHtmlToText(mainHtml).slice(0, 7000);
-        extractedPages.push({ url: cleanUrl, title: mainTitle, text: mainText });
+    while (queue.length > 0 && extractedPages.length < maxPages) {
+      const batch = queue.splice(0, 6);
+      await Promise.all(batch.map(async (url: string) => {
+        const key = canonicalKey(url);
+        if (seen.has(key) || extractedPages.length >= maxPages) return;
+        seen.add(key);
+        try {
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 8000);
+          const res = await fetch(url, {
+            signal: ctrl.signal,
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
+            },
+          });
+          clearTimeout(tid);
+          const ct = res.headers.get("content-type") || "";
+          if (!res.ok || (ct && !ct.includes("text/html") && !ct.includes("application/xhtml"))) return;
+          const html = await res.text();
+          const text = sanitizeHtmlToText(html).slice(0, 12000);
+          const title = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || new URL(url).hostname;
+          extractedPages.push({ url, title, text });
 
-        // Auto-detect WhatsApp number from links like wa.me/12345 or whatsapp.com/send?phone=12345
-        const waMatch = mainHtml.match(/(?:https?:\/\/)?(?:api\.whatsapp\.com\/send\?phone=|wa\.me\/|whatsapp:\/\/send\?phone=)([0-9+]+)/i);
-        if (waMatch && waMatch[1]) {
-          detectedWhatsApp = waMatch[1].replace(/[^0-9+]/g, '');
-        }
+          const wa = html.match(/(?:https?:\/\/)?(?:api\.whatsapp\.com\/send\?phone=|wa\.me\/|whatsapp:\/\/send\?phone=)([0-9+]+)/i);
+          if (wa && wa[1] && !detectedWhatsApp) detectedWhatsApp = wa[1].replace(/[^0-9+]/g, "");
 
-        // 2. Discover Subpage Links (About, Products, Services, Contact, FAQ, Pricing, Collections)
-        const linkMatches = Array.from(mainHtml.matchAll(/href=["'](\/[a-zA-Z0-9_\-\/]+|https?:\/\/[^"']+)["']/gi));
-        const subLinksToCrawl = new Set<string>();
-        
-        const priorityKeywords = ['about', 'service', 'product', 'contact', 'faq', 'pricing', 'collection', 'menu', 'policy', 'terms', 'shipping', 'store', 'shop'];
-
-        for (const match of linkMatches) {
-          const href = match[1];
-          if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.includes('javascript:')) continue;
-          
-          let fullUrl = href;
-          if (href.startsWith('/')) {
-            fullUrl = `${originUrl}${href}`;
-          }
-
-          try {
-            const parsed = new URL(fullUrl);
-            // Only crawl same domain and matches interesting keyword
-            if (parsed.hostname.replace(/^www\./, '') === domainName) {
-              const pathnameLower = parsed.pathname.toLowerCase();
-              const isRelevant = priorityKeywords.some(kw => pathnameLower.includes(kw));
-              if (isRelevant && fullUrl !== cleanUrl && subLinksToCrawl.size < 4) {
-                subLinksToCrawl.add(fullUrl);
-              }
-            }
-          } catch {
-            // invalid URL ignored
-          }
-        }
-
-        // 3. Fetch discovered subpages in parallel
-        if (subLinksToCrawl.size > 0) {
-          const subpagePromises = Array.from(subLinksToCrawl).map(async (subUrl) => {
+          for (const m of Array.from(html.matchAll(/href=["']([^"']+)["']/gi))) {
+            const href = m[1];
+            if (!href || href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("javascript:") || looksLikeAsset(href)) continue;
             try {
-              const subCtrl = new AbortController();
-              const subTimeout = setTimeout(() => subCtrl.abort(), 4000);
-              const subRes = await fetch(subUrl, {
-                signal: subCtrl.signal,
-                headers: {
-                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
-                }
-              });
-              clearTimeout(subTimeout);
-              if (subRes.ok) {
-                const subHtml = await subRes.text();
-                const subTitle = subHtml.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() || subUrl;
-                const subText = sanitizeHtmlToText(subHtml).slice(0, 4000);
-                return { url: subUrl, title: subTitle, text: subText };
+              const full = new URL(href, url).toString();
+              const p = new URL(full);
+              if (p.hostname.replace(/^www\./, "") !== domainName) continue;
+              const k2 = canonicalKey(full);
+              if (!seen.has(k2) && seen.size < maxPages * 6) {
+                seen.add(k2);
+                queue.push(full);
               }
-            } catch (err) {
-              // subpage fetch fail is fine
-            }
-            return null;
-          });
-
-          const subResults = await Promise.all(subpagePromises);
-          subResults.forEach(res => {
-            if (res) extractedPages.push(res);
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("Direct site fetch timed out, falling back to brand synthesis:", e);
+            } catch { /* ignore invalid link */ }
+          }
+        } catch { /* page failure is fine */ }
+      }));
     }
 
-    // Build unified multi-page extracted summary
+    // Cap per-page text, then merge everything into one comprehensive corpus.
+    extractedPages = extractedPages.map((p) => ({ ...p, text: p.text.slice(0, 12000) }));
+
     let aggregatedContent = "";
-    if (extractedPages.length > 0) {
-      extractedPages.forEach((p, idx) => {
-        aggregatedContent += `\n\n--- PAGE ${idx + 1}: ${p.title} (${p.url}) ---\n${p.text}`;
-      });
+    if (extractedPages.length === 0) {
+      aggregatedContent = `No live pages were reachable. Synthesize complete, realistic business details for ${capitalizedBrand} (${domainName}) based on industry-standard offerings for ${botRole || "E-commerce & Client Services"}.`;
     } else {
-      aggregatedContent = `Synthesize complete, realistic business details for ${capitalizedBrand} (${domainName}) based on industry standard offerings for ${botRole || "E-commerce & Client Services"}.`;
+      extractedPages.forEach((p, idx) => {
+        aggregatedContent += `\n\n--- PAGE ${idx + 1}: ${p.title} (${p.url}) ---\n${p.text}\n`;
+      });
     }
+    aggregatedContent = aggregatedContent.slice(0, 300000);
 
     const ai = getAI();
     let finalPayload: any = null;
@@ -622,7 +768,7 @@ Detected WhatsApp: "${detectedWhatsApp || 'Not found'}"
 
 Extracted Deep Multi-Page Content:
 """
-${aggregatedContent.slice(0, 18000)}
+${aggregatedContent.slice(0, 120000)}
 """
 Preferred Role: "${botRole || "Customer Concierge & Sales Guide"}"
 
@@ -631,8 +777,8 @@ Generate a complete, deeply structured JSON payload with:
 2. "clientName": "${capitalizedBrand} Official"
 3. "description": 2-sentence executive summary of the brand and bot's mission
 4. "whatsappNumber": "${detectedWhatsApp || ''}"
-5. "whatsappMessage": "مرحباً، أود التحدث مع فريق الدعم بخصوص استفساري على موقع ${capitalizedBrand}"
-6. "knowledgeBase": A comprehensive, highly detailed multi-section knowledge base (at least 350-600 words) formatted in clean Markdown covering everything extracted from all subpages:
+5. "whatsappMessage": "Hello! I would like to speak with your support team regarding my inquiry on ${capitalizedBrand}"
+6. "knowledgeBase": A maximally comprehensive, deeply detailed multi-section knowledge base (aim for at least 1000-1600 words) formatted in beautiful clean Markdown, covering EVERY verifiable fact extracted from ALL the crawled pages below — every product, service, price, policy, menu, FAQ, location, contact detail, and page topic you find. Leave nothing out that appears on the site:
    - 🏛️ Company Profile & Brand Overview
    - 🛍️ Key Offerings, Products, Services & Catalogs
    - 💳 Pricing, Packages, Payment Methods & Quotation Process
@@ -676,7 +822,7 @@ Output ONLY valid JSON without markdown wrapping.`;
         clientName: `${capitalizedBrand} Co.`,
         description: `Bespoke AI Concierge engineered for ${domainName}, delivering 24/7 client guidance.`,
         whatsappNumber: detectedWhatsApp || '',
-        whatsappMessage: `مرحباً، أود التحدث مع فريق الدعم بخصوص استفساري على موقع ${capitalizedBrand}`,
+        whatsappMessage: `Hello! I would like to speak with your support team regarding my inquiry on ${capitalizedBrand}`,
         knowledgeBase: `### 🏛️ Company Overview\n${capitalizedBrand} is a premier provider of industry-leading products and client services.\n\n### 🛍️ Offerings & Services\n- Bespoke solutions tailored to client requirements.\n- High-reliability catalog with verified authenticity.\n\n### 🚚 Shipping & Policies\n- Fast domestic and international delivery.\n- Secure checkout and 24/7 dedicated support.`,
         faqs: [
           { question: "How do I place an order or schedule a consultation?", answer: "You can place orders directly through our website or contact our concierge team for private arrangements." },
@@ -712,7 +858,7 @@ Output ONLY valid JSON without markdown wrapping.`;
 });
 
 // Auto-generate FAQs and knowledge base for a chatbot
-app.post("/api/ai/generate-faq", async (req, res) => {
+app.post("/api/ai/generate-faq", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     const { businessDescription, botRole } = req.body;
     const ai = getAI();
@@ -753,7 +899,7 @@ Generate 4 realistic, high-value, and elegant Frequently Asked Questions (FAQs) 
 });
 
 // Auto-enhance bot prompt
-app.post("/api/ai/enhance-prompt", async (req, res) => {
+app.post("/api/ai/enhance-prompt", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     const { currentPrompt, botName, botRole } = req.body;
     const ai = getAI();
@@ -781,10 +927,14 @@ Write an authoritative, highly effective, and polished system instruction in Eng
 });
 
 // Real Website Screenshot Fetcher (returns base64 dataUrl for seamless image capture)
-app.all("/api/screenshot", async (req, res) => {
+app.all("/api/screenshot", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     let rawUrl = (req.method === "POST" ? req.body?.url : req.query?.url) as string || "";
-    rawUrl = rawUrl.trim();
+    const safety = await isUnsafeUrl(rawUrl);
+    if (!safety.ok) {
+      return res.status(400).json({ error: `URL blocked: ${safety.reason}` });
+    }
+    rawUrl = normalizeUrl(rawUrl);
     
     if (!rawUrl) {
       return res.status(400).json({ error: "Website URL is required" });
@@ -886,6 +1036,10 @@ app.all("/api/screenshot", async (req, res) => {
 
 // Vite middleware in dev or static files in production
 async function startServer() {
+  const publicDir = path.join(process.cwd(), "public");
+  if (fs.existsSync(publicDir)) {
+    app.use(express.static(publicDir));
+  }
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

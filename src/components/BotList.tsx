@@ -46,6 +46,8 @@ import { Chatbot, BotRole, EnvironmentType, BotViewMode } from '../types';
 
 interface BotListProps {
   bots: Chatbot[];
+  isAdmin?: boolean;
+  canManageBot?: boolean;
   onCreateNewBot: () => void;
   onEditBot: (bot: Chatbot) => void;
   onOpenEmbed: (bot: Chatbot) => void;
@@ -60,6 +62,8 @@ interface BotListProps {
 
 export const BotList: React.FC<BotListProps> = ({
   bots,
+  isAdmin = false,
+  canManageBot = true,
   onCreateNewBot,
   onEditBot,
   onOpenEmbed,
@@ -277,10 +281,10 @@ export const BotList: React.FC<BotListProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 justify-end">
-              <span className="text-[11px] text-emerald-400 font-semibold">{activeCount} نشط</span>
+              <span className="text-[11px] text-emerald-400 font-semibold">{activeCount} active</span>
               <span className="text-2xl font-black text-white font-['Outfit',sans-serif]">{bots.length}</span>
             </div>
-            <div className="text-xs text-zinc-400 font-medium truncate">إجمالي الشات بوتات المنشأة</div>
+            <div className="text-xs text-zinc-400 font-medium truncate">Total bots created</div>
           </div>
         </div>
 
@@ -290,10 +294,10 @@ export const BotList: React.FC<BotListProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 justify-end">
-              <span className="text-[11px] text-zinc-400 font-medium">شركات</span>
+              <span className="text-[11px] text-zinc-400 font-medium">Clients</span>
               <span className="text-2xl font-black text-white font-['Outfit',sans-serif]">{uniqueClients.length}</span>
             </div>
-            <div className="text-xs text-zinc-400 font-medium truncate">شركات ومؤسسات العملاء</div>
+            <div className="text-xs text-zinc-400 font-medium truncate">Client companies</div>
           </div>
         </div>
 
@@ -303,7 +307,7 @@ export const BotList: React.FC<BotListProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-2xl font-black text-white font-['Outfit',sans-serif]">{totalConversations.toLocaleString()}</div>
-            <div className="text-xs text-zinc-400 font-medium truncate">إجمالي محادثات الزوار المنفذة</div>
+            <div className="text-xs text-zinc-400 font-medium truncate">Total visitor conversations</div>
           </div>
         </div>
 
@@ -313,10 +317,10 @@ export const BotList: React.FC<BotListProps> = ({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 justify-end">
-              <span className="text-[11px] text-indigo-400 font-semibold">{productionCount} إنتاج مباشر</span>
+              <span className="text-[11px] text-indigo-400 font-semibold">{productionCount} live</span>
               <span className="text-2xl font-black text-white font-['Outfit',sans-serif]">{avgSatisfaction}%</span>
             </div>
-            <div className="text-xs text-zinc-400 font-medium truncate">متوسط نسبة رضا العملاء والزوار</div>
+            <div className="text-xs text-zinc-400 font-medium truncate">Average client satisfaction</div>
           </div>
         </div>
       </div>
@@ -333,9 +337,9 @@ export const BotList: React.FC<BotListProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="البحث باسم البوت، اسم شركة العميل، رابط الموقع، أو الوسم..."
-              className="w-full bg-zinc-950/80 border border-zinc-800 rounded-xl pr-10 pl-9 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-right"
-              dir="rtl"
+              placeholder="Search by bot name, client company, website URL, or tag..."
+              className="w-full bg-zinc-950/80 border border-zinc-800 rounded-xl pr-10 pl-9 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+              dir="ltr"
             />
             {searchQuery && (
               <button
@@ -353,7 +357,7 @@ export const BotList: React.FC<BotListProps> = ({
             <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-xl p-1">
               <button
                 onClick={() => setViewMode('grid')}
-                title="عرض الشبكة (بطاقات بصرية)"
+                title="Grid view (visual cards)"
                 className={`p-1.5 rounded-lg text-xs transition-all ${
                   viewMode === 'grid' 
                     ? 'bg-indigo-600 text-white shadow-sm' 
@@ -364,7 +368,7 @@ export const BotList: React.FC<BotListProps> = ({
               </button>
               <button
                 onClick={() => setViewMode('table')}
-                title="عرض الجدول (إدارة موسعة ومكثفة)"
+                title="Table view (dense management)"
                 className={`p-1.5 rounded-lg text-xs transition-all ${
                   viewMode === 'table' 
                     ? 'bg-indigo-600 text-white shadow-sm' 
@@ -375,7 +379,7 @@ export const BotList: React.FC<BotListProps> = ({
               </button>
               <button
                 onClick={() => setViewMode('by_client')}
-                title="تجميع حسب شركة العميل"
+                title="Group by client company"
                 className={`p-1.5 rounded-lg text-xs transition-all ${
                   viewMode === 'by_client' 
                     ? 'bg-indigo-600 text-white shadow-sm' 
@@ -386,14 +390,16 @@ export const BotList: React.FC<BotListProps> = ({
               </button>
             </div>
 
+            {isAdmin && (
             <button
               id="btn-create-new-bot-top"
               onClick={onCreateNewBot}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/20 transition-all active:scale-95 shrink-0"
             >
               <Plus className="w-4 h-4" />
-              <span>مساعد جديد +</span>
+              <span>New Assistant +</span>
             </button>
+          )}
           </div>
         </div>
 
@@ -408,7 +414,7 @@ export const BotList: React.FC<BotListProps> = ({
               onChange={(e) => setSelectedClient(e.target.value)}
               className="bg-transparent text-zinc-200 text-xs focus:outline-none cursor-pointer pr-1"
             >
-              <option value="all" className="bg-zinc-900 text-white">كل الشركات ({bots.length})</option>
+              <option value="all" className="bg-zinc-900 text-white">All companies ({bots.length})</option>
               {uniqueClients.map((client) => {
                 const count = bots.filter(b => b.clientName === client).length;
                 return (
@@ -417,7 +423,7 @@ export const BotList: React.FC<BotListProps> = ({
                   </option>
                 );
               })}
-              <option value="unassigned" className="bg-zinc-900 text-white">غير مخصص لشركة ({bots.filter(b => !b.clientName).length})</option>
+              <option value="unassigned" className="bg-zinc-900 text-white">Unassigned to a company ({bots.filter(b => !b.clientName).length})</option>
             </select>
           </div>
 
@@ -429,10 +435,10 @@ export const BotList: React.FC<BotListProps> = ({
               onChange={(e) => setSelectedEnvironment(e.target.value)}
               className="bg-transparent text-zinc-200 text-xs focus:outline-none cursor-pointer pr-1"
             >
-              <option value="all" className="bg-zinc-900 text-white">كل البيئات</option>
-              <option value="production" className="bg-zinc-900 text-white">🟢 إنتاج مباشر (Production)</option>
-              <option value="staging" className="bg-zinc-900 text-white">🟡 اختبار تجريبي (Staging)</option>
-              <option value="development" className="bg-zinc-900 text-white">🔵 قيد التطوير (Development)</option>
+              <option value="all" className="bg-zinc-900 text-white">All environments</option>
+              <option value="production" className="bg-zinc-900 text-white">🟢 Production live</option>
+              <option value="staging" className="bg-zinc-900 text-white">🟡 Staging test</option>
+              <option value="development" className="bg-zinc-900 text-white">🔵 Development</option>
             </select>
           </div>
 
@@ -444,9 +450,9 @@ export const BotList: React.FC<BotListProps> = ({
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="bg-transparent text-zinc-200 text-xs focus:outline-none cursor-pointer pr-1"
             >
-              <option value="all" className="bg-zinc-900 text-white">الحالة: الكل</option>
-              <option value="active" className="bg-zinc-900 text-white">نشط ويعمل فقط</option>
-              <option value="inactive" className="bg-zinc-900 text-white">متوقف مؤقتاً فقط</option>
+              <option value="all" className="bg-zinc-900 text-white">Status: all</option>
+              <option value="active" className="bg-zinc-900 text-white">Active only</option>
+              <option value="inactive" className="bg-zinc-900 text-white">Paused only</option>
             </select>
           </div>
 
@@ -458,12 +464,12 @@ export const BotList: React.FC<BotListProps> = ({
               onChange={(e) => setSelectedRole(e.target.value)}
               className="bg-transparent text-zinc-200 text-xs focus:outline-none cursor-pointer pr-1"
             >
-              <option value="all" className="bg-zinc-900 text-white">مجال العمل: الكل</option>
-              <option value="ecommerce_guide" className="bg-zinc-900 text-white">🛍️ تجارة إلكترونية ومبيعات</option>
-              <option value="appointment_booking" className="bg-zinc-900 text-white">🩺 حجوزات ومواعيد طبية</option>
-              <option value="sales_lead" className="bg-zinc-900 text-white">⚡ مبيعات وعقارات وخدمات</option>
-              <option value="customer_support" className="bg-zinc-900 text-white">🎧 خدمة ودعم العملاء</option>
-              <option value="faq_assistant" className="bg-zinc-900 text-white">❓ استفسارات وأسئلة شائعة</option>
+              <option value="all" className="bg-zinc-900 text-white">Business role: all</option>
+              <option value="ecommerce_guide" className="bg-zinc-900 text-white">🛍️ E-commerce & sales</option>
+              <option value="appointment_booking" className="bg-zinc-900 text-white">🩺 Bookings & medical</option>
+              <option value="sales_lead" className="bg-zinc-900 text-white">⚡ Sales, real estate & services</option>
+              <option value="customer_support" className="bg-zinc-900 text-white">🎧 Customer support</option>
+              <option value="faq_assistant" className="bg-zinc-900 text-white">❓ FAQs & general info</option>
             </select>
           </div>
 
@@ -476,7 +482,7 @@ export const BotList: React.FC<BotListProps> = ({
                 onChange={(e) => setSelectedTag(e.target.value)}
                 className="bg-transparent text-zinc-200 text-xs focus:outline-none cursor-pointer pr-1"
               >
-                <option value="all" className="bg-zinc-900 text-white">الوسوم: الكل</option>
+                <option value="all" className="bg-zinc-900 text-white">Tags: all</option>
                 {uniqueTags.map(t => (
                   <option key={t} value={t} className="bg-zinc-900 text-white">#{t}</option>
                 ))}
@@ -492,11 +498,11 @@ export const BotList: React.FC<BotListProps> = ({
               onChange={(e) => setSortBy(e.target.value as any)}
               className="bg-transparent text-zinc-200 text-xs focus:outline-none cursor-pointer pr-1 font-medium"
             >
-              <option value="updated" className="bg-zinc-900 text-white">ترتيب: آخر تحديث</option>
-              <option value="conversations" className="bg-zinc-900 text-white">ترتيب: الأكثر محادثات</option>
-              <option value="satisfaction" className="bg-zinc-900 text-white">ترتيب: أعلى نسبة رضا</option>
-              <option value="name" className="bg-zinc-900 text-white">ترتيب: اسم البوت (أ-ي)</option>
-              <option value="client" className="bg-zinc-900 text-white">ترتيب: اسم الشركة (أ-ي)</option>
+              <option value="updated" className="bg-zinc-900 text-white">Sort: last updated</option>
+              <option value="conversations" className="bg-zinc-900 text-white">Sort: most conversations</option>
+              <option value="satisfaction" className="bg-zinc-900 text-white">Sort: highest satisfaction</option>
+              <option value="name" className="bg-zinc-900 text-white">Sort: bot name (A-Z)</option>
+              <option value="client" className="bg-zinc-900 text-white">Sort: company name (A-Z)</option>
             </select>
           </div>
 
@@ -513,25 +519,25 @@ export const BotList: React.FC<BotListProps> = ({
               }}
               className="text-indigo-400 hover:text-indigo-300 text-xs font-semibold px-2 py-1 underline"
             >
-              إعادة تعيين الفلاتر
+              Reset filters
             </button>
           )}
 
         </div>
       </div>
 
-      {/* BATCH / BULK ACTION FLOATING TOOLBAR (WHEN 1+ BOTS SELECTED) */}
-      {selectedBotIds.length > 0 && (
+      {/* BATCH / BULK ACTION FLOATING TOOLBAR (admin only) */}
+      {isAdmin && selectedBotIds.length > 0 && (
         <div className="p-3 bg-indigo-950/90 border border-indigo-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-2xl backdrop-blur-md animate-fadeIn">
           <div className="flex items-center gap-3">
             <div className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-xs">
-              {selectedBotIds.length} محددة
+              {selectedBotIds.length} selected
             </div>
             <button
               onClick={selectAll}
               className="text-xs text-indigo-200 hover:text-white underline font-medium"
             >
-              {selectedBotIds.length === filteredBots.length ? 'إلغاء تحديد الكل' : 'تحديد جميع المعروض'}
+              {selectedBotIds.length === filteredBots.length ? 'Deselect all' : 'Select all shown'}
             </button>
           </div>
 
@@ -540,39 +546,39 @@ export const BotList: React.FC<BotListProps> = ({
               onClick={handleBulkActivate}
               className="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition-all"
             >
-              تفعيل المحددة
+              Activate selected
             </button>
             <button
               onClick={handleBulkPause}
               className="px-3 py-1.5 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all"
             >
-              إيقاف مؤقت
+              Pause
             </button>
             <button
               onClick={() => setIsAssignClientModalOpen(true)}
               className="px-3 py-1.5 rounded-xl bg-indigo-600/40 hover:bg-indigo-600/60 text-indigo-200 border border-indigo-500/30 text-xs font-bold transition-all flex items-center gap-1.5"
             >
               <Building2 className="w-3.5 h-3.5" />
-              <span>تعيين لشركة</span>
+              <span>Assign to company</span>
             </button>
             <button
               onClick={handleBulkExportJSON}
               className="px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-bold transition-all flex items-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>تصدير JSON</span>
+              <span>Export JSON</span>
             </button>
             <button
               onClick={handleBulkDelete}
               className="px-3 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all flex items-center gap-1.5"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>حذف المحددة</span>
+              <span>Delete selected</span>
             </button>
             <button
               onClick={() => setSelectedBotIds([])}
               className="p-1.5 text-zinc-400 hover:text-white"
-              title="إلغاء التحديد"
+              title="Clear selection"
             >
               <X className="w-4 h-4" />
             </button>
@@ -583,8 +589,8 @@ export const BotList: React.FC<BotListProps> = ({
       {/* FILTER RESULTS SUMMARY */}
       <div className="flex items-center justify-between text-xs text-zinc-400 px-1">
         <span>
-          عرض <strong className="text-white font-bold">{filteredBots.length}</strong> من أصل {bots.length} شات بوت
-          {selectedClient !== 'all' && <span> لشركة <strong>{selectedClient}</strong></span>}
+          Showing <strong className="text-white font-bold">{filteredBots.length}</strong> of {bots.length} bots
+          {selectedClient !== 'all' && <span> for client <strong>{selectedClient}</strong></span>}
         </span>
         {filteredBots.length > 0 && (
           <button
@@ -596,7 +602,7 @@ export const BotList: React.FC<BotListProps> = ({
             ) : (
               <Square className="w-3.5 h-3.5" />
             )}
-            <span>تحديد الكل</span>
+            <span>Select all</span>
           </button>
         )}
       </div>
@@ -607,7 +613,7 @@ export const BotList: React.FC<BotListProps> = ({
           {filteredBots.map((bot) => {
             const isSelected = selectedBotIds.includes(bot.id);
             const env = bot.environment || 'production';
-            const envLabel = env === 'production' ? 'إنتاج مباشر' : env === 'staging' ? 'اختبار تجريبي' : 'قيد التطوير';
+            const envLabel = env === 'production' ? 'Live' : env === 'staging' ? 'Staging test' : 'In development';
 
             return (
               <div
@@ -645,7 +651,7 @@ export const BotList: React.FC<BotListProps> = ({
                       {/* Company Name Badge */}
                       <span className="text-[11px] font-bold text-zinc-300 bg-zinc-950 border border-zinc-800 px-2.5 py-0.5 rounded-lg truncate flex items-center gap-1">
                         <Building2 className="w-3 h-3 text-indigo-400 shrink-0" />
-                        <span className="truncate">{bot.clientName || 'عميل مباشر'}</span>
+                        <span className="truncate">{bot.clientName || 'Direct client'}</span>
                       </span>
                     </div>
 
@@ -664,7 +670,7 @@ export const BotList: React.FC<BotListProps> = ({
                       {/* Pin button */}
                       <button
                         onClick={() => handleTogglePin(bot)}
-                        title={bot.isPinned ? 'إلغاء التثبيت' : 'تثبيت في الأعلى'}
+                        title={bot.isPinned ? 'Unpin' : 'Pin to top'}
                         className={`p-1 rounded-lg transition-colors ${
                           bot.isPinned ? 'text-amber-400 bg-amber-400/10' : 'text-zinc-500 hover:text-zinc-300'
                         }`}
@@ -698,7 +704,7 @@ export const BotList: React.FC<BotListProps> = ({
                       <div className="flex items-center gap-1.5 mt-0.5 justify-start" dir="ltr">
                         <Globe className="w-3 h-3 text-zinc-500 shrink-0" />
                         <span className="text-[11px] text-zinc-400 line-clamp-1 font-mono">
-                          {bot.websiteUrl || 'لا يوجد رابط محدد'}
+                          {bot.websiteUrl || 'No URL set'}
                         </span>
                       </div>
                     </div>
@@ -707,7 +713,7 @@ export const BotList: React.FC<BotListProps> = ({
                   {/* Client Account Info strip if present */}
                   {bot.clientEmail && (
                     <div className="p-2 bg-indigo-950/40 border border-indigo-500/20 rounded-xl mb-3 flex items-center justify-between text-[11px] text-right">
-                      <span className="text-zinc-400">حساب دخول العميل:</span>
+                      <span className="text-zinc-400">Client login account:</span>
                       <span className="font-mono text-indigo-300 font-semibold truncate max-w-[170px]" dir="ltr">
                         {bot.clientEmail}
                       </span>
@@ -716,7 +722,7 @@ export const BotList: React.FC<BotListProps> = ({
 
                   {/* Widget Header Display Name preview */}
                   <div className="p-2 bg-zinc-950/70 border border-zinc-800/80 rounded-xl mb-3 flex items-center justify-between text-[11px] text-right">
-                    <span className="text-zinc-400">عنوان نافذة الشات:</span>
+                    <span className="text-zinc-400">Chat window title:</span>
                     <span className="font-bold text-indigo-300 truncate max-w-[170px]">
                       {bot.widgetConfig?.headerTitle || bot.name}
                     </span>
@@ -744,41 +750,43 @@ export const BotList: React.FC<BotListProps> = ({
                       <div className="text-xs font-bold text-white font-mono">
                         {bot.stats.totalConversations.toLocaleString()}
                       </div>
-                      <div className="text-[10px] text-zinc-400">المحادثات</div>
+                      <div className="text-[10px] text-zinc-400">Conversations</div>
                     </div>
                     <div>
                       <div className="text-xs font-bold text-emerald-400 font-mono">
                         {bot.stats.satisfactionRate}%
                       </div>
-                      <div className="text-[10px] text-zinc-400">نسبة الرضا</div>
+                      <div className="text-[10px] text-zinc-400">Satisfaction</div>
                     </div>
                     <div>
                       <div className="text-xs font-bold text-indigo-300 font-mono">
                         {bot.stats.avgResponseTimeMs}ms
                       </div>
-                      <div className="text-[10px] text-zinc-400">سرعة الرد</div>
+                      <div className="text-[10px] text-zinc-400">Response speed</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Bottom Actions Toolbar */}
                 <div className="flex items-center justify-between gap-2 pt-3 border-t border-zinc-800/80">
-                  {/* Status Toggle */}
-                  <button
-                    onClick={() => onToggleActive(bot.id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
-                      bot.isActive
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${bot.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
-                    <span>{bot.isActive ? 'نشط' : 'متوقف'}</span>
-                  </button>
+                  {/* Status Toggle (clients can manage their own bot; viewers are read-only) */}
+                  {canManageBot && (
+                    <button
+                      onClick={() => onToggleActive(bot.id)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all ${
+                        bot.isActive
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${bot.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-500'}`} />
+                      <span>{bot.isActive ? 'Active' : 'Paused'}</span>
+                    </button>
+                  )}
 
                   <div className="flex items-center gap-1 flex-wrap justify-end">
-                    {/* Direct Client Portal Button */}
-                    {onOpenClientPortalAsUser && (
+                    {/* Direct Client Portal Button (admin only) */}
+                    {isAdmin && onOpenClientPortalAsUser && (
                       <button
                         onClick={() => {
                           const clean = (bot.clientName || bot.name).trim();
@@ -792,27 +800,29 @@ export const BotList: React.FC<BotListProps> = ({
                             assignedBotIds: [bot.id],
                           });
                         }}
-                        title={`دخول لوحة العميل الخاصة بشركة (${bot.clientName || bot.name})`}
+                        title={`Open client portal for (${bot.clientName || bot.name})`}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition-all shadow-xs"
                       >
                         <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                        <span>لوحة العميل</span>
+                        <span>Client portal</span>
                       </button>
                     )}
 
-                    {/* Edit in Studio */}
+                    {/* Edit in Studio (clients can edit their own bot) */}
+                    {canManageBot && (
                     <button
                       onClick={() => onEditBot(bot)}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors shadow-sm"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>تعديل</span>
+                      <span>Edit</span>
                     </button>
+                    )}
 
                     {/* Simulator Button */}
                     <button
                       onClick={() => onOpenSimulator(bot)}
-                      title="تجربة في محاكي المواقع"
+                      title="Test in website simulator"
                       className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
                     >
                       <MonitorPlay className="w-3.5 h-3.5" />
@@ -823,7 +833,7 @@ export const BotList: React.FC<BotListProps> = ({
                       href={`${window.location.origin}/?demo=${bot.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="فتح رابط تجربة البوت المباشر"
+                      title="Open live bot demo link"
                       className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-indigo-300 hover:text-white transition-colors"
                     >
                       <Eye className="w-3.5 h-3.5" />
@@ -832,7 +842,7 @@ export const BotList: React.FC<BotListProps> = ({
                     {/* Embed Code Button */}
                     <button
                       onClick={() => onOpenEmbed(bot)}
-                      title="الحصول على كود التضمين"
+                      title="Get embed code"
                       className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
                     >
                       <Code2 className="w-3.5 h-3.5" />
@@ -841,29 +851,33 @@ export const BotList: React.FC<BotListProps> = ({
                     {/* Client Pitch Share */}
                     <button
                       onClick={() => onOpenClientPreview(bot)}
-                      title="عرض بطاقة التقديم والمشاركة للعميل"
+                      title="Open client pitch & share card"
                       className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
                     >
                       <Share2 className="w-3.5 h-3.5" />
                     </button>
 
-                    {/* Duplicate */}
+                    {/* Duplicate (admin only) */}
+                    {isAdmin && (
                     <button
                       onClick={() => onDuplicateBot(bot)}
-                      title="تكرار / استنساخ البوت"
+                      title="Duplicate bot"
                       className="p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
                     >
                       <Copy className="w-3.5 h-3.5" />
                     </button>
+                    )}
 
-                    {/* Delete */}
+                    {/* Delete (admin only) */}
+                    {isAdmin && (
                     <button
                       onClick={() => onDeleteBot(bot.id)}
-                      title="حذف البوت"
+                      title="Delete bot"
                       className="p-1.5 rounded-xl bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400 transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -888,22 +902,22 @@ export const BotList: React.FC<BotListProps> = ({
                       )}
                     </button>
                   </th>
-                  <th className="py-3 px-4">اسم المساعد والنافذة</th>
-                  <th className="py-3 px-4">شركة العميل</th>
-                  <th className="py-3 px-4">الموقع / النطاق</th>
-                  <th className="py-3 px-4">البيئة</th>
-                  <th className="py-3 px-4">الحالة</th>
-                  <th className="py-3 px-4">المحادثات</th>
-                  <th className="py-3 px-4">نسبة الرضا</th>
-                  <th className="py-3 px-4">سرعة الرد</th>
-                  <th className="py-3 px-4 text-left">إجراءات سريعة</th>
+                  <th className="py-3 px-4">Assistant & window name</th>
+                  <th className="py-3 px-4">Client company</th>
+                  <th className="py-3 px-4">Website / domain</th>
+                  <th className="py-3 px-4">Environment</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Conversations</th>
+                  <th className="py-3 px-4">Satisfaction</th>
+                  <th className="py-3 px-4">Response time</th>
+                  <th className="py-3 px-4 text-left">Quick actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60">
                 {filteredBots.map((bot) => {
                   const isSelected = selectedBotIds.includes(bot.id);
                   const env = bot.environment || 'production';
-                  const envLabel = env === 'production' ? 'إنتاج' : env === 'staging' ? 'تجريبي' : 'تطوير';
+                  const envLabel = env === 'production' ? 'Production' : env === 'staging' ? 'Staging' : 'Development';
 
                   return (
                     <tr 
@@ -945,7 +959,7 @@ export const BotList: React.FC<BotListProps> = ({
                               {bot.isPinned && <Pin className="w-3 h-3 text-amber-400 fill-amber-400" />}
                             </div>
                             <div className="text-[11px] text-indigo-300 font-medium">
-                              العنوان: {bot.widgetConfig?.headerTitle || bot.name}
+                              Title: {bot.widgetConfig?.headerTitle || bot.name}
                             </div>
                           </div>
                         </div>
@@ -955,7 +969,7 @@ export const BotList: React.FC<BotListProps> = ({
                       <td className="py-3 px-4">
                         <span className="font-semibold text-zinc-300 bg-zinc-950 border border-zinc-800 px-2 py-0.5 rounded-md text-[11px] inline-flex items-center gap-1">
                           <Building2 className="w-3 h-3 text-indigo-400" />
-                          <span>{bot.clientName || 'عميل مباشر'}</span>
+                          <span>{bot.clientName || 'Direct client'}</span>
                         </span>
                       </td>
 
@@ -991,6 +1005,7 @@ export const BotList: React.FC<BotListProps> = ({
 
                       {/* Status */}
                       <td className="py-3 px-4">
+                        {canManageBot && (
                         <button
                           onClick={() => onToggleActive(bot.id)}
                           className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold ${
@@ -1000,8 +1015,9 @@ export const BotList: React.FC<BotListProps> = ({
                           }`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full ${bot.isActive ? 'bg-emerald-400' : 'bg-zinc-500'}`} />
-                          <span>{bot.isActive ? 'نشط' : 'متوقف'}</span>
+                          <span>{bot.isActive ? 'Active' : 'Paused'}</span>
                         </button>
+                        )}
                       </td>
 
                       {/* Stats */}
@@ -1020,38 +1036,44 @@ export const BotList: React.FC<BotListProps> = ({
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => onOpenSimulator(bot)}
-                            title="محاكي المواقع"
+                            title="Website simulator"
                             className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white"
                           >
                             <MonitorPlay className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => onOpenEmbed(bot)}
-                            title="كود التضمين"
+                            title="Embed code"
                             className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white"
                           >
                             <Code2 className="w-3.5 h-3.5" />
                           </button>
+                          {isAdmin && (
                           <button
                             onClick={() => onDuplicateBot(bot)}
-                            title="تكرار"
+                            title="Duplicate"
                             className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white"
                           >
                             <Copy className="w-3.5 h-3.5" />
                           </button>
+                          )}
+                          {canManageBot && (
                           <button
                             onClick={() => onEditBot(bot)}
                             className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px]"
                           >
-                            تعديل
+                            Edit
                           </button>
+                          )}
+                          {isAdmin && (
                           <button
                             onClick={() => onDeleteBot(bot.id)}
-                            title="حذف"
+                            title="Delete"
                             className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-950 text-zinc-400 hover:text-rose-400"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1087,15 +1109,16 @@ export const BotList: React.FC<BotListProps> = ({
                           {clientName}
                         </h3>
                         <span className="text-xs px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-300 font-semibold border border-zinc-700">
-                          {clientBots.length} بوتات
+                          {clientBots.length} bots
                         </span>
                       </div>
                       <p className="text-xs text-zinc-400 mt-0.5">
-                        مساحة عمل العميل • {clientTotalChats.toLocaleString()} إجمالي المحادثات • نسبة الرضا {clientAvgSat}%
+                        Client workspace • {clientTotalChats.toLocaleString()} total conversations • {clientAvgSat}% satisfaction
                       </p>
                     </div>
                   </div>
 
+                  {isAdmin && (
                   <button
                     onClick={() => {
                       onCreateNewBot();
@@ -1103,8 +1126,9 @@ export const BotList: React.FC<BotListProps> = ({
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white text-xs font-semibold border border-zinc-700 transition-colors self-start sm:self-auto"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>إضافة بوت جديد لهذه الشركة</span>
+                    <span>Add a new bot for this company</span>
                   </button>
+                  )}
                 </div>
 
                 {/* Sub-grid of bots for this client */}
@@ -1130,7 +1154,7 @@ export const BotList: React.FC<BotListProps> = ({
                             <div>
                               <h4 className="font-bold text-white text-xs line-clamp-1">{bot.name}</h4>
                               <span className="text-[10px] text-zinc-400 font-mono truncate block max-w-[150px]" dir="ltr">
-                                {bot.websiteUrl || 'بدون رابط'}
+                                {bot.websiteUrl || 'No link'}
                               </span>
                             </div>
                           </div>
@@ -1140,41 +1164,43 @@ export const BotList: React.FC<BotListProps> = ({
                               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                               : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                           }`}>
-                            {(bot.environment || 'production') === 'production' ? 'إنتاج' : 'تجريبي'}
+                            {(bot.environment || 'production') === 'production' ? 'Production' : 'Staging'}
                           </span>
                         </div>
 
                         <div className="text-[11px] text-indigo-300 font-medium mb-3">
-                          العنوان: {bot.widgetConfig?.headerTitle || bot.name}
+                          Title: {bot.widgetConfig?.headerTitle || bot.name}
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-900 text-xs">
                         <span className="font-mono text-zinc-400 text-[11px]">
-                          {bot.stats.totalConversations} محادثة
+                          {bot.stats.totalConversations} conversations
                         </span>
                         
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => onOpenSimulator(bot)}
-                            title="محاكي المواقع"
+                            title="Website simulator"
                             className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white"
                           >
                             <MonitorPlay className="w-3 h-3" />
                           </button>
                           <button
                             onClick={() => onOpenEmbed(bot)}
-                            title="كود التضمين"
+                            title="Embed code"
                             className="p-1.5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white"
                           >
                             <Code2 className="w-3 h-3" />
                           </button>
+                          {canManageBot && (
                           <button
                             onClick={() => onEditBot(bot)}
                             className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px]"
                           >
-                            تعديل
+                            Edit
                           </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1193,7 +1219,7 @@ export const BotList: React.FC<BotListProps> = ({
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-white text-base font-['Outfit',sans-serif] flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-indigo-400" />
-                <span>تعيين شركة / عميل</span>
+                <span>Assign Company / Client</span>
               </h3>
               <button
                 onClick={() => setIsAssignClientModalOpen(false)}
@@ -1204,13 +1230,13 @@ export const BotList: React.FC<BotListProps> = ({
             </div>
 
             <p className="text-xs text-zinc-400">
-              تعيين <strong className="text-white">{selectedBotIds.length}</strong> شات بوتات محددة لشركة عميل مسجلة أو إنشاء شركة جديدة:
+              Assign <strong className="text-white">{selectedBotIds.length}</strong> bots to a registered client company, or create a new one:
             </p>
 
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  اختر من الشركات الحالية
+                  Choose from existing companies
                 </label>
                 <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto pr-1">
                   {uniqueClients.map((client) => (
@@ -1222,7 +1248,7 @@ export const BotList: React.FC<BotListProps> = ({
                     >
                       <span>{client}</span>
                       <span className="text-[10px] text-zinc-500">
-                        {bots.filter(b => b.clientName === client).length} بوتات
+                        {bots.filter(b => b.clientName === client).length} bots
                       </span>
                     </button>
                   ))}
@@ -1231,14 +1257,14 @@ export const BotList: React.FC<BotListProps> = ({
 
               <div className="pt-2 border-t border-zinc-800">
                 <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-                  أو أدخل اسم شركة عميل جديدة
+                  Or enter a new client company name
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={newClientNameInput}
                     onChange={(e) => setNewClientNameInput(e.target.value)}
-                    placeholder="مثال: شركة النخبة للتطوير العقاري"
+                    placeholder="e.g. Elite Real Estate Development"
                     className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-right"
                   />
                   <button
@@ -1247,7 +1273,7 @@ export const BotList: React.FC<BotListProps> = ({
                     onClick={() => handleBulkAssignClient(newClientNameInput)}
                     className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs transition-colors"
                   >
-                    تعيين
+                    Assign
                   </button>
                 </div>
               </div>

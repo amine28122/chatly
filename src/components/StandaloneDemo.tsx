@@ -53,7 +53,7 @@ export function StandaloneDemo({ bot, onOpenClientLogin }: StandaloneDemoProps) 
               </span>
             </div>
             <p className="text-[11px] text-zinc-400">
-              معاينة تجريبية حية ومخصصة لموقع: {bot.websiteUrl || bot.clientDomain || 'Your Business'}
+              Live hosted preview for: {bot.websiteUrl || bot.clientDomain || 'Your Business'}
             </p>
           </div>
         </div>
@@ -67,7 +67,7 @@ export function StandaloneDemo({ bot, onOpenClientLogin }: StandaloneDemoProps) 
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-xl text-xs font-bold border border-emerald-500/30 transition-all"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span>دعم واتساب المباشر</span>
+              <span>Direct WhatsApp support</span>
             </a>
           )}
 
@@ -76,7 +76,7 @@ export function StandaloneDemo({ bot, onOpenClientLogin }: StandaloneDemoProps) 
               onClick={onOpenClientLogin}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20"
             >
-              <span>دخول لوحة تحكم العميل</span>
+              <span>Client Dashboard</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}
@@ -91,27 +91,27 @@ export function StandaloneDemo({ bot, onOpenClientLogin }: StandaloneDemoProps) 
             <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-6 shadow-xl space-y-4">
               <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
                 <Sparkles className="w-4 h-4" />
-                <span>روبوت ذكاء اصطناعي مدرب بالكامل لموقعك</span>
+                <span>Fully trained AI assistant for your website</span>
               </div>
               <h2 className="text-xl font-extrabold text-white">
                 {bot.name}
               </h2>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                {bot.description || 'يقوم هذا الروبوت بالإجابة عن استفسارات زوار موقعك بدقة متناهية على مدار 24 ساعة، وجمع بيانات العملاء، وتحويل المهتمين بالشراء إلى الواتساب فوراً.'}
+                {bot.description || 'This assistant answers your visitors\' questions accurately 24/7, captures leads, and handsover interested buyers to WhatsApp instantly.'}
               </p>
 
               <div className="pt-2 border-t border-zinc-800/80 space-y-2 text-xs">
                 <div className="flex items-center justify-between text-zinc-300">
-                  <span className="text-zinc-500">الموقع المستهدف:</span>
-                  <span className="font-semibold text-white">{bot.websiteUrl || bot.clientDomain || 'موقع شركتك'}</span>
+                  <span className="text-zinc-500">Target website:</span>
+                  <span className="font-semibold text-white">{bot.websiteUrl || bot.clientDomain || 'Your Website'}</span>
                 </div>
                 <div className="flex items-center justify-between text-zinc-300">
-                  <span className="text-zinc-500">رقم تحويل الواتساب:</span>
-                  <span className="font-mono text-emerald-400">{bot.whatsappNumber || 'مفعل'}</span>
+                  <span className="text-zinc-500">WhatsApp handover:</span>
+                  <span className="font-mono text-emerald-400">{bot.whatsappNumber || 'Enabled'}</span>
                 </div>
                 <div className="flex items-center justify-between text-zinc-300">
-                  <span className="text-zinc-500">سرعة الاستجابة:</span>
-                  <span className="text-indigo-400 font-semibold">&lt; 1 ثانية (فوري)</span>
+                  <span className="text-zinc-500">Response speed:</span>
+                  <span className="text-indigo-400 font-semibold">&lt; 1s (instant)</span>
                 </div>
               </div>
             </div>
@@ -121,14 +121,14 @@ export function StandaloneDemo({ bot, onOpenClientLogin }: StandaloneDemoProps) 
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white flex items-center gap-2">
                   <Code2 className="w-4 h-4 text-indigo-400" />
-                  <span>كود التضمين لموقعك (iFrame Code)</span>
+                  <span>Embed code for your site (iFrame)</span>
                 </span>
                 <button
                   onClick={() => copyToClipboard(iframeCode, 'iframe')}
                   className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
                 >
                   {copiedKey === 'iframe' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedKey === 'iframe' ? 'تم النسخ!' : 'نسخ'}</span>
+                  <span>{copiedKey === 'iframe' ? 'Copied!' : 'Copy'}</span>
                 </button>
               </div>
               <div className="bg-black border border-zinc-800/80 rounded-xl p-3 font-mono text-[11px] text-emerald-300 select-all overflow-x-auto">
@@ -148,7 +148,7 @@ export function StandaloneDemo({ bot, onOpenClientLogin }: StandaloneDemoProps) 
 
       {/* Footer */}
       <footer className="border-t border-zinc-800/60 py-4 text-center text-xs text-zinc-500">
-        تم تصميم هذا الروبوت بواسطة منصة BotCraft AI • جميع الحقوق محفوظة
+        Designed with BotCraft AI • All rights reserved
       </footer>
     </div>
   );

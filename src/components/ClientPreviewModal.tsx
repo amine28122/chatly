@@ -647,7 +647,7 @@ export const ClientPreviewModal: React.FC<ClientPreviewModalProps> = ({
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  <span>Download Client Preview PNG (تحميل صورة الموقع مع الشات بوت)</span>
+                  <span>Download Client Preview PNG</span>
                 </>
               )}
             </button>

@@ -120,7 +120,7 @@ export interface Chatbot {
   systemPrompt: string;
   knowledgeBase: string;
   whatsappNumber?: string; // e.g. "+966501234567" or "+212612345678"
-  whatsappMessage?: string; // Pre-filled custom text e.g. "مرحباً، أود التحدث مع خدمة العملاء"
+  whatsappMessage?: string; // Pre-filled custom text e.g. "Hello, I would like to speak with customer service"
   enableWhatsAppHandover?: boolean; // Enable 1-click WhatsApp button and AI human transfer
   rules?: string[]; // Strict behavioral rules & guardrails
   faqs: FAQItem[];
@@ -143,7 +143,7 @@ export interface User {
   email: string;
   avatar: string;
   plan: 'free' | 'pro' | 'enterprise';
-  role: 'admin' | 'client';
+  role: 'admin' | 'client' | 'viewer'; // viewer = read-only access
   companyName?: string;
   assignedBotIds?: string[];
   createdAt: string;
@@ -156,7 +156,7 @@ export interface ClientUserAccount {
   name: string;
   companyName: string;
   assignedBotIds: string[];
-  role: 'admin' | 'client';
+  role: 'admin' | 'client' | 'viewer';
   createdAt: string;
   lastLogin?: string;
 }
